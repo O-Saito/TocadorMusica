@@ -85,10 +85,9 @@ func main() {
 
 		switch cmd {
 		case "add":
-			input := ""
-			if len(parts) > 1 {
-				input = strings.Join(parts[1:], " ")
-			} else {
+			input := strings.Join(parts[1:], " ")
+
+			if len(parts) == 0 {
 				fmt.Print("Paste YouTube URL or search: ")
 				input, _ = reader.ReadString('\n')
 				input = strings.TrimSpace(input)
@@ -99,15 +98,14 @@ func main() {
 				continue
 			}
 
-			// Check if URL or search query
-			if services.IsURL(input) {
-				// It's a URL - stream tracks from channel
+			parseURLAddToQueue := func(url string) {
 				fmt.Println("Fetching tracks...")
-				ch, err := services.ParseURL(input)
+				// It's a URL - stream tracks from channel
+				ch, err := services.ParseURL(url)
 				if err != nil {
 					services.Error("Error parsing URL: %v", err)
 					fmt.Printf("Error: %v\n", err)
-					continue
+					return
 				}
 
 				// Add tracks to queue as they arrive
@@ -121,66 +119,56 @@ func main() {
 				if trackCount == 0 {
 					fmt.Println("No tracks found")
 				}
-			} else {
-				// It's a search query
-				fmt.Printf("Searching for: %s\n", input)
-				ch, err := services.Search(input, cfg.SearchResults)
-				if err != nil {
-					services.Error("Error searching: %v", err)
-					fmt.Printf("Error: %v\n", err)
-					continue
-				}
-
-				// Collect all results for selection
-				results := services.CollectTracks(ch)
-
-				if len(results) == 0 {
-					fmt.Println("No results found")
-					continue
-				}
-
-				// Display results
-				fmt.Println("Search results:")
-				for i, r := range results {
-					fmt.Printf("%d. %s [%s]\n", i+1, r.Title, r.DurationFormatted())
-				}
-
-				// Get user selection
-				fmt.Print("Select (number): ")
-				selection, _ := reader.ReadString('\n')
-				selection = strings.TrimSpace(selection)
-
-				// Cancel on empty or invalid
-				if selection == "" {
-					fmt.Println("Search cancelled")
-					continue
-				}
-
-				// Parse selection
-				idx, err := strconv.Atoi(selection)
-				if err != nil || idx < 1 || idx > len(results) {
-					fmt.Println("Invalid selection")
-					continue
-				}
-
-				// Get the selected track
-				selected := results[idx-1]
-				fmt.Printf("Fetching: %s\n", selected.Title)
-
-				// Parse the video URL to get full info (with audio URL)
-				ch, err = services.ParseURL(selected.URL)
-				if err != nil {
-					services.Error("Error parsing selected video: %v", err)
-					fmt.Printf("Error: %v\n", err)
-					continue
-				}
-
-				// Add selected track to queue
-				for track := range ch {
-					queue.Add([]models.Track{track})
-					fmt.Printf("Added: %s\n", track.Title)
-				}
 			}
+
+			// Check if URL or search query
+			if services.IsURL(input) {
+				parseURLAddToQueue(input)
+				continue
+			}
+			// It's a search query
+			fmt.Printf("Searching for: %s\n", input)
+			ch, err := services.Search(input, cfg.SearchResults)
+			if err != nil {
+				services.Error("Error searching: %v", err)
+				fmt.Printf("Error: %v\n", err)
+				continue
+			}
+
+			// Collect all results for selection
+			results := services.CollectTracks(ch)
+
+			if len(results) == 0 {
+				fmt.Println("No results found")
+				continue
+			}
+
+			// Display results
+			fmt.Println("Search results:")
+			for i, r := range results {
+				fmt.Printf("%d. %s [%s]\n", i+1, r.Title, r.DurationFormatted())
+			}
+
+			// Get user selection
+			fmt.Print("Select (number): ")
+			selection, _ := reader.ReadString('\n')
+			selection = strings.TrimSpace(selection)
+
+			// Cancel on empty or invalid
+			if selection == "" {
+				fmt.Println("Search cancelled")
+				continue
+			}
+
+			// Parse selection
+			idx, err := strconv.Atoi(selection)
+			if err != nil || idx < 1 || idx > len(results) {
+				fmt.Println("Invalid selection")
+				continue
+			}
+			// Get the selected track
+			selected := results[idx-1]
+			parseURLAddToQueue(selected.URL)
 
 		case "volume":
 			if len(parts) > 1 {
