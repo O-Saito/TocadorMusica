@@ -101,30 +101,38 @@ func main() {
 
 			// Check if URL or search query
 			if services.IsURL(input) {
-				// It's a URL - parse directly
+				// It's a URL - stream tracks from channel
 				fmt.Println("Fetching tracks...")
-				tracks, err := services.ParseURL(input)
+				ch, err := services.ParseURL(input)
 				if err != nil {
 					services.Error("Error parsing URL: %v", err)
 					fmt.Printf("Error: %v\n", err)
 					continue
 				}
 
-				queue.Add(tracks)
-				if len(tracks) == 1 {
-					fmt.Printf("Added: %s\n", tracks[0].Title)
-				} else {
-					fmt.Printf("Added playlist with %d tracks\n", len(tracks))
+				// Add tracks to queue as they arrive
+				trackCount := 0
+				for track := range ch {
+					queue.Add([]models.Track{track})
+					fmt.Printf("Added: %s\n", track.Title)
+					trackCount++
+				}
+
+				if trackCount == 0 {
+					fmt.Println("No tracks found")
 				}
 			} else {
 				// It's a search query
 				fmt.Printf("Searching for: %s\n", input)
-				results, err := services.Search(input, cfg.SearchResults)
+				ch, err := services.Search(input, cfg.SearchResults)
 				if err != nil {
 					services.Error("Error searching: %v", err)
 					fmt.Printf("Error: %v\n", err)
 					continue
 				}
+
+				// Collect all results for selection
+				results := services.CollectTracks(ch)
 
 				if len(results) == 0 {
 					fmt.Println("No results found")
@@ -160,15 +168,18 @@ func main() {
 				fmt.Printf("Fetching: %s\n", selected.Title)
 
 				// Parse the video URL to get full info (with audio URL)
-				tracks, err := services.ParseURL(selected.URL)
+				ch, err = services.ParseURL(selected.URL)
 				if err != nil {
 					services.Error("Error parsing selected video: %v", err)
 					fmt.Printf("Error: %v\n", err)
 					continue
 				}
 
-				queue.Add(tracks)
-				fmt.Printf("Added: %s\n", tracks[0].Title)
+				// Add selected track to queue
+				for track := range ch {
+					queue.Add([]models.Track{track})
+					fmt.Printf("Added: %s\n", track.Title)
+				}
 			}
 
 		case "volume":

@@ -55,58 +55,52 @@ func getAudioURL(formats []Format) string {
 	return ""
 }
 
-func ParseURL(url string) ([]models.Track, error) {
+func ParseURL(url string) (<-chan models.Track, error) {
 	Info("Parsing URL: %s", url)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 120*time.Second)
-	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "yt-dlp", "--no-warnings", "--skip-download", "--dump-json", url)
+	ch := make(chan models.Track)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		Error("Failed to create pipe: %v", err)
-		return nil, fmt.Errorf("failed to create pipe: %w", err)
-	}
+	go func() {
+		defer close(ch)
+		defer cancel()
 
-	if err := cmd.Start(); err != nil {
-		Error("Failed to start yt-dlp: %v", err)
-		return nil, fmt.Errorf("failed to start yt-dlp: %w", err)
-	}
+		cmd := exec.CommandContext(ctx, "yt-dlp", "--no-warnings", "--skip-download", "--dump-json", url)
 
-	decoder := json.NewDecoder(stdout)
-	var tracks []models.Track
-	entryCount := 0
-
-	for {
-		var entry ytDlpEntry
-		if err := decoder.Decode(&entry); err != nil {
-			break
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			Error("Failed to create pipe: %v", err)
+			return
 		}
-		entryCount++
 
-		if entry.Type == "playlist" && len(entry.Entries) > 0 {
-			Info("Found playlist with %d entries", len(entry.Entries))
-			for _, e := range entry.Entries {
-				tracks = append(tracks, convertEntry(e))
+		if err := cmd.Start(); err != nil {
+			Error("Failed to start yt-dlp: %v", err)
+			return
+		}
+
+		decoder := json.NewDecoder(stdout)
+
+		for {
+			var entry ytDlpEntry
+			if err := decoder.Decode(&entry); err != nil {
+				break
 			}
-		} else {
-			tracks = append(tracks, convertEntry(entry))
+
+			if entry.Type == "playlist" && len(entry.Entries) > 0 {
+				Info("Found playlist with %d entries", len(entry.Entries))
+				for _, e := range entry.Entries {
+					ch <- convertEntry(e)
+				}
+			} else {
+				ch <- convertEntry(entry)
+			}
 		}
-	}
 
-	err = cmd.Wait()
-	if err != nil {
-		Error("yt-dlp command error: %v", err)
-	}
+		cmd.Wait()
+	}()
 
-	if len(tracks) == 0 {
-		Error("No tracks found for URL: %s", url)
-		return nil, fmt.Errorf("no tracks found")
-	}
-
-	Info("Successfully parsed %d tracks", len(tracks))
-	return tracks, nil
+	return ch, nil
 }
 
 func convertEntry(e ytDlpEntry) models.Track {
@@ -159,53 +153,49 @@ func IsURL(input string) bool {
 		strings.Contains(input, "youtu.be")
 }
 
-func Search(query string, maxResults int) ([]models.Track, error) {
+func Search(query string, maxResults int) (<-chan models.Track, error) {
 	Info("Searching for: %s (max %d results)", query, maxResults)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
-	defer cancel()
 
-	cmd := exec.CommandContext(ctx, "yt-dlp",
-		"--no-warnings",
-		"--skip-download",
-		"--dump-json",
-		fmt.Sprintf("ytsearch%d:%s", maxResults, query))
+	ch := make(chan models.Track)
 
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		Error("Failed to create pipe: %v", err)
-		return nil, fmt.Errorf("failed to create pipe: %w", err)
-	}
+	go func() {
+		defer close(ch)
+		defer cancel()
 
-	if err := cmd.Start(); err != nil {
-		Error("Failed to start yt-dlp: %v", err)
-		return nil, fmt.Errorf("failed to start yt-dlp: %w", err)
-	}
+		cmd := exec.CommandContext(ctx, "yt-dlp",
+			"--no-warnings",
+			"--skip-download",
+			"--dump-json",
+			fmt.Sprintf("ytsearch%d:%s", maxResults, query))
 
-	decoder := json.NewDecoder(stdout)
-	var tracks []models.Track
-
-	for {
-		var entry ytDlpEntry
-		if err := decoder.Decode(&entry); err != nil {
-			break
+		stdout, err := cmd.StdoutPipe()
+		if err != nil {
+			Error("Failed to create pipe: %v", err)
+			return
 		}
 
-		tracks = append(tracks, convertEntrySearch(entry))
-	}
+		if err := cmd.Start(); err != nil {
+			Error("Failed to start yt-dlp: %v", err)
+			return
+		}
 
-	err = cmd.Wait()
-	if err != nil {
-		Error("yt-dlp command error: %v", err)
-	}
+		decoder := json.NewDecoder(stdout)
 
-	if len(tracks) == 0 {
-		Error("No results found for: %s", query)
-		return nil, fmt.Errorf("no results found")
-	}
+		for {
+			var entry ytDlpEntry
+			if err := decoder.Decode(&entry); err != nil {
+				break
+			}
 
-	Info("Found %d results for: %s", len(tracks), query)
-	return tracks, nil
+			ch <- convertEntrySearch(entry)
+		}
+
+		cmd.Wait()
+	}()
+
+	return ch, nil
 }
 
 func convertEntrySearch(e ytDlpEntry) models.Track {
@@ -244,4 +234,12 @@ func extractVideoID(url string) string {
 	}
 
 	return ""
+}
+
+func CollectTracks(ch <-chan models.Track) []models.Track {
+	var tracks []models.Track
+	for track := range ch {
+		tracks = append(tracks, track)
+	}
+	return tracks
 }
