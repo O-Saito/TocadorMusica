@@ -2,8 +2,7 @@
 
 ## Project Overview
 
-Music player project (TocadorMusica = MusicPlayer in Portuguese). The codebase is empty, so these are foundational guidelines to follow when building this project.
-
+Music player project (TocadorMusica = MusicPlayer in Portuguese). Play a music/playlist URL or search by title!
 ---
 
 ## Build, Lint, and Test Commands
@@ -14,6 +13,20 @@ Music player project (TocadorMusica = MusicPlayer in Portuguese). The codebase i
 - `go run -race` - Run in development
 
 ---
+
+## Repository Structure
+
+```
+tocadormusica/
+├── config/                   # Internal package
+│   ├── config.go             # Implementation
+│   └── config_test.go        # Test the implementation
+├── models/                   # Internal process
+└── services/                 # Access to external API
+    ├── yt-dlp/               # Access to yt-dlp service
+    ├── audio/                # Access to oto player
+    └── logger.go             # Logger
+```
 
 ## Code Style Guidelines
 
@@ -36,7 +49,6 @@ Music player project (TocadorMusica = MusicPlayer in Portuguese). The codebase i
   2. Internal modules (e.g., `tocadormusica/commands`, `tocadormusica/utils`)
   3. Command line (e.g. `yt-dlp`, `ffmpeg`)
 - Use absolute imports when configured
-- Avoid relative imports beyond 2 levels (use path aliases)
 
 ### Error Handling
 - Always use try-catch for async operations
@@ -62,15 +74,6 @@ Music player project (TocadorMusica = MusicPlayer in Portuguese). The codebase i
 
 ---
 
-## Recommended Project Structure
-
-```
-framework/
-main.go
-```
-
----
-
 ## Common Frameworks Used
 - **github.com/ebitengine/oto/v3** - Music player
 ---
@@ -78,5 +81,10 @@ main.go
 ## Environment Variables Required
 
 Create a `.config` file with:
+volume=0.01
+search_results=10
 ```
 ```
+
+## Adapters
+
