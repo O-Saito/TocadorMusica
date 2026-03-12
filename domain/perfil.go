@@ -12,26 +12,38 @@ import (
 	"tocadormusica/ports/ui"
 )
 
-type Perfil interface {
+type PerfilInterface interface {
 	Name() string
 	Queue() Queue
 	Player() audio.Player
+	Config() config.Config
+	YtService() YouTubeService
+	Output() ui.OutputHandler
+	Logger() logger.Logger
+	Context() context.Context
+	ExecuteCommand(name string, args []string)
+	SetCommandExecutor(exec CommandExecutor)
 	Start(ctx context.Context) error
 	Wait()
 }
 
+type CommandExecutor interface {
+	ExecuteCommand(name string, args []string)
+}
+
 type perfil struct {
-	name   string
-	queue  Queue
-	player audio.Player
-	input  ui.InputHandler
-	output ui.OutputHandler
-	ytSvc  YouTubeService
-	cfg    config.Config
-	log    logger.Logger
-	ctx    context.Context
-	cancel context.CancelFunc
-	done   chan struct{}
+	name        string
+	queue       Queue
+	player      audio.Player
+	input       ui.InputHandler
+	output      ui.OutputHandler
+	ytSvc       YouTubeService
+	cfg         config.Config
+	log         logger.Logger
+	cmdExecutor CommandExecutor
+	ctx         context.Context
+	cancel      context.CancelFunc
+	done        chan struct{}
 }
 
 func NewPerfil(
@@ -43,18 +55,30 @@ func NewPerfil(
 	ytSvc YouTubeService,
 	cfg config.Config,
 	log logger.Logger,
-) Perfil {
+	cmdExecutor CommandExecutor,
+) PerfilInterface {
 	return &perfil{
-		name:   name,
-		queue:  queue,
-		player: player,
-		input:  input,
-		output: output,
-		ytSvc:  ytSvc,
-		cfg:    cfg,
-		log:    log.WithProfile(name),
-		done:   make(chan struct{}),
+		name:        name,
+		queue:       queue,
+		player:      player,
+		input:       input,
+		output:      output,
+		ytSvc:       ytSvc,
+		cfg:         cfg,
+		log:         log.WithProfile(name),
+		cmdExecutor: cmdExecutor,
+		done:        make(chan struct{}),
 	}
+}
+
+func (p *perfil) ExecuteCommand(name string, args []string) {
+	if p.cmdExecutor != nil {
+		p.cmdExecutor.ExecuteCommand(name, args)
+	}
+}
+
+func (p *perfil) SetCommandExecutor(exec CommandExecutor) {
+	p.cmdExecutor = exec
 }
 
 func (p *perfil) Name() string {
@@ -67,6 +91,26 @@ func (p *perfil) Queue() Queue {
 
 func (p *perfil) Player() audio.Player {
 	return p.player
+}
+
+func (p *perfil) Config() config.Config {
+	return p.cfg
+}
+
+func (p *perfil) YtService() YouTubeService {
+	return p.ytSvc
+}
+
+func (p *perfil) Output() ui.OutputHandler {
+	return p.output
+}
+
+func (p *perfil) Logger() logger.Logger {
+	return p.log
+}
+
+func (p *perfil) Context() context.Context {
+	return p.ctx
 }
 
 func (p *perfil) Start(ctx context.Context) error {
@@ -113,34 +157,12 @@ func (p *perfil) handleInput(input string) {
 	cmd := parts[0]
 	args := parts[1:]
 
-	switch cmd {
-	case "add":
-		if len(args) == 0 {
-			p.output.Display("Usage: add <url or search query>")
-			return
-		}
-		p.handleAdd(args[0])
-	case "play":
-		p.handlePlay()
-	case "pause":
-		p.handlePause()
-	case "resume":
-		p.handleResume()
-	case "stop":
-		p.handleStop()
-	case "next":
-		p.handleNext()
-	case "queue":
-		p.handleQueue()
-	case "volume":
-		var volArg string
-		if len(args) > 0 {
-			volArg = args[0]
-		}
-		p.handleVolume(volArg)
-	default:
-		p.output.FindUnknownCommand()
+	if cmd == "add" && len(args) == 0 {
+		p.output.Display("Usage: add <url or search query>")
+		return
 	}
+
+	p.ExecuteCommand(cmd, args)
 }
 
 func (p *perfil) handleAdd(arg string) {

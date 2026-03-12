@@ -8,6 +8,7 @@ import (
 	"strings"
 	"sync"
 
+	"tocadormusica/commands"
 	"tocadormusica/ports/ui"
 )
 
@@ -63,8 +64,6 @@ func (c *CLIinterface) Run(ctx context.Context) {
 		line, err := c.reader.ReadString('\n')
 		line = strings.TrimSpace(line)
 
-		fmt.Fprintf(os.Stderr, "[DEBUG CLI] Received: %q, err=%v, waiting=%q\n", line, err, c.waitingType)
-
 		if err != nil {
 			continue
 		}
@@ -113,12 +112,7 @@ func (c *CLIinterface) DisplayOptions(options []string) <-chan int {
 
 func (c *CLIinterface) FindUnknownCommand() {
 	fmt.Println("Unknown command. Available commands:")
-	fmt.Println("  add     : Add a track to queue (url or search query)")
-	fmt.Println("  next    : Skip to next track in queue")
-	fmt.Println("  pause   : Pause current track")
-	fmt.Println("  play    : Play the first track in queue")
-	fmt.Println("  queue   : Show queue size")
-	fmt.Println("  resume  : Resume paused track")
-	fmt.Println("  stop    : Stop current track")
-	fmt.Println("  volume  : Get/set volume (0-100)")
+	for _, cmd := range commands.List() {
+		fmt.Printf("  %-8s: %s\n", cmd.Name(), cmd.Description())
+	}
 }

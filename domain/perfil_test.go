@@ -118,7 +118,7 @@ func TestPerfil_New(t *testing.T) {
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test-perfil", queue, player, input, output, ytSvc, cfg, log)
+	perfil := NewPerfil("test-perfil", queue, player, input, output, ytSvc, cfg, log, nil)
 
 	if perfil.Name() != "test-perfil" {
 		t.Errorf("expected name 'test-perfil', got '%s'", perfil.Name())
@@ -134,7 +134,7 @@ func TestPerfil_Components(t *testing.T) {
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
 
 	if perfil.Queue() == nil {
 		t.Error("expected queue to be set")
@@ -153,7 +153,7 @@ func TestPerfil_Start(t *testing.T) {
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	err := perfil.Start(ctx)
@@ -174,7 +174,7 @@ func TestPerfil_Shutdown(t *testing.T) {
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	perfil.Start(ctx)
@@ -194,7 +194,7 @@ func TestPerfil_InputRouting(t *testing.T) {
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	perfil.Start(ctx)

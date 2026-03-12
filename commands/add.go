@@ -1,9 +1,10 @@
 package commands
 
 import (
-	"context"
 	"fmt"
 	"strings"
+
+	"tocadormusica/domain"
 )
 
 type AddCommand struct{}
@@ -11,7 +12,7 @@ type AddCommand struct{}
 func (c *AddCommand) Name() string        { return "add" }
 func (c *AddCommand) Description() string { return "Add a track to queue (url or search query)" }
 
-func (c *AddCommand) Execute(ctx CommandContext, args []string) error {
+func (c *AddCommand) Execute(p domain.PerfilInterface, args []string) error {
 	if len(args) == 0 {
 		return fmt.Errorf("usage: add <url or search query>")
 	}
@@ -19,10 +20,10 @@ func (c *AddCommand) Execute(ctx CommandContext, args []string) error {
 	arg := args[0]
 
 	if isYouTubeURL(arg) {
-		return addURL(ctx, arg)
+		return addURL(p, arg)
 	}
 
-	return searchAndAdd(ctx, arg)
+	return searchAndAdd(p, arg)
 }
 
 func isYouTubeURL(input string) bool {
@@ -30,52 +31,52 @@ func isYouTubeURL(input string) bool {
 		strings.Contains(input, "youtu.be")
 }
 
-func addURL(ctx CommandContext, url string) error {
-	ctx.Output.Display("Fetching track...")
+func addURL(p domain.PerfilInterface, url string) error {
+	p.Output().Display("Fetching track...")
 
-	track, err := ctx.YtService.ParseURL(context.Background(), url)
+	track, err := p.YtService().ParseURL(p.Context(), url)
 	if err != nil {
 		return fmt.Errorf("failed to fetch track: %w", err)
 	}
 
-	err = ctx.Queue.Enqueue(track)
+	err = p.Queue().Enqueue(track)
 	if err != nil {
 		return fmt.Errorf("failed to add to queue: %w", err)
 	}
 
-	ctx.Output.Display("Added: " + track.Title())
+	p.Output().Display("Added: " + track.Title())
 	return nil
 }
 
-func searchAndAdd(ctx CommandContext, query string) error {
-	ctx.Output.Display("Searching...")
+func searchAndAdd(p domain.PerfilInterface, query string) error {
+	p.Output().Display("Searching...")
 
-	_, profile := ctx.Config.GetProfile(ctx.ProfileName)
-	results, err := ctx.YtService.Search(context.Background(), query, profile.SearchResults)
+	_, profile := p.Config().GetProfile(p.Name())
+	results, err := p.YtService().Search(p.Context(), query, profile.SearchResults)
 	if err != nil {
 		return fmt.Errorf("search failed: %w", err)
 	}
 
 	if len(results) == 0 {
-		ctx.Output.Display("No results found")
+		p.Output().Display("No results found")
 		return nil
 	}
 
 	titles := make([]string, len(results))
 	for i, r := range results {
-		titles[i] = fmt.Sprintf("%s - %s", r.Title(), r.Duration())
+		titles[i] = fmt.Sprintf("%s - %s", r.Title, r.Duration)
 	}
 
-	ctx.Output.Display("Select a track:")
-	ch := ctx.Output.DisplayOptions(titles)
+	p.Output().Display("Select a track:")
+	ch := p.Output().DisplayOptions(titles)
 	idx := <-ch
 
 	if idx < 0 || idx >= len(results) {
-		ctx.Output.Display("Invalid selection")
+		p.Output().Display("Invalid selection")
 		return nil
 	}
 
-	return addURL(ctx, results[idx].URL())
+	return addURL(p, results[idx].URL)
 }
 
 var _ Command = (*AddCommand)(nil)

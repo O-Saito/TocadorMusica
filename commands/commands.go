@@ -3,51 +3,13 @@ package commands
 import (
 	"sort"
 
-	"tocadormusica/config"
-	"tocadormusica/logger"
-	"tocadormusica/ports/audio"
-	"tocadormusica/ports/ui"
+	"tocadormusica/domain"
 )
-
-type Track interface {
-	Title() string
-	URL() string
-	AudioURL() string
-}
-
-type SearchResult interface {
-	Title() string
-	URL() string
-	Duration() string
-}
-
-type Queue interface {
-	Enqueue(track Track) error
-	Dequeue() (Track, error)
-	Peek() (Track, error)
-	Size() int
-	IsEmpty() bool
-}
-
-type YouTubeService interface {
-	ParseURL(ctx interface{}, url string) (Track, error)
-	Search(ctx interface{}, query string, maxResults int) ([]SearchResult, error)
-}
-
-type CommandContext struct {
-	ProfileName string
-	Queue       Queue
-	Player      audio.Player
-	Config      config.Config
-	YtService   YouTubeService
-	Output      ui.OutputHandler
-	Logger      logger.Logger
-}
 
 type Command interface {
 	Name() string
 	Description() string
-	Execute(ctx CommandContext, args []string) error
+	Execute(perfil domain.PerfilInterface, args []string) error
 }
 
 var registry = make(map[string]Command)
@@ -61,12 +23,12 @@ func Get(name string) Command {
 }
 
 func List() []Command {
-	commands := make([]Command, 0, len(registry))
+	cmds := make([]Command, 0, len(registry))
 	for _, cmd := range registry {
-		commands = append(commands, cmd)
+		cmds = append(cmds, cmd)
 	}
-	sort.Slice(commands, func(i, j int) bool {
-		return commands[i].Name() < commands[j].Name()
+	sort.Slice(cmds, func(i, j int) bool {
+		return cmds[i].Name() < cmds[j].Name()
 	})
-	return commands
+	return cmds
 }

@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -15,9 +14,24 @@ import (
 	"tocadormusica/config"
 	"tocadormusica/domain"
 	"tocadormusica/logger"
-	"tocadormusica/ports/audio"
 	"tocadormusica/services/yt-dlp"
 )
+
+type cmdExecutor struct {
+	perfil domain.PerfilInterface
+}
+
+func (e *cmdExecutor) ExecuteCommand(name string, args []string) {
+	cmd := commands.Get(name)
+	if cmd != nil {
+		err := cmd.Execute(e.perfil, args)
+		if err != nil {
+			e.perfil.Output().Display("Error: " + err.Error())
+		}
+	} else {
+		e.perfil.Output().FindUnknownCommand()
+	}
+}
 
 func main() {
 	profileName := "main-perfil"
@@ -75,7 +89,11 @@ func main() {
 		ytService,
 		cfg,
 		log,
+		nil,
 	)
+
+	executor := &cmdExecutor{perfil: perfil}
+	perfil.SetCommandExecutor(executor)
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -103,29 +121,4 @@ func showHelp(cli *cliui.CLIinterface) {
 	for _, cmd := range commands.List() {
 		cli.Display(fmt.Sprintf("  %-8s: %s", cmd.Name(), cmd.Description()))
 	}
-}
-
-func handleCommand(input, profileName string, queue domain.Queue, player audio.Player, cfg config.Config, ytService domain.YouTubeService, cli *cliui.CLIinterface, log logger.Logger) {
-	log.Info("received input", "input", input)
-
-	parts := strings.Fields(input)
-	if len(parts) == 0 {
-		return
-	}
-
-	commandName := parts[0]
-	args := parts[1:]
-
-	cmd := commands.Get(commandName)
-	if cmd == nil {
-		cli.Display("Unknown command")
-		showHelp(cli)
-		return
-	}
-
-	cmd.Execute(commands.CommandContext{
-		ProfileName: profileName,
-		Output:      cli,
-		Logger:      log,
-	}, args)
 }

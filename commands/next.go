@@ -1,48 +1,52 @@
 package commands
 
+import (
+	"tocadormusica/domain"
+)
+
 type NextCommand struct{}
 
 func (c *NextCommand) Name() string        { return "next" }
 func (c *NextCommand) Description() string { return "Skip to next track in queue" }
 
-func (c *NextCommand) Execute(ctx CommandContext, args []string) error {
-	if ctx.Queue.IsEmpty() {
-		ctx.Output.Display("Queue is empty")
+func (c *NextCommand) Execute(p domain.PerfilInterface, args []string) error {
+	if p.Queue().IsEmpty() {
+		p.Output().Display("Queue is empty")
 		return nil
 	}
 
-	_, err := ctx.Queue.Dequeue()
+	_, err := p.Queue().Dequeue()
 	if err != nil {
 		return err
 	}
 
-	if !ctx.Queue.IsEmpty() {
-		track, err := ctx.Queue.Peek()
+	if !p.Queue().IsEmpty() {
+		track, err := p.Queue().Peek()
 		if err != nil {
-			ctx.Output.Display("Queue is empty")
-			ctx.Player.Stop()
+			p.Output().Display("Queue is empty")
+			p.Player().Stop()
 			return nil
 		}
 
-		ctx.Logger.Debug("playing track", "title", track.Title(), "url", track.URL(), "audioURL", track.AudioURL())
+		p.Logger().Debug("playing track", "title", track.Title(), "url", track.URL(), "audioURL", track.AudioURL())
 
 		if track.AudioURL() == "" {
-			ctx.Output.Display("Error: No audio URL available for this track")
+			p.Output().Display("Error: No audio URL available for this track")
 			return nil
 		}
 
-		ctx.Output.Display("Streaming: " + track.Title())
+		p.Output().Display("Streaming: " + track.Title())
 
-		global, _ := ctx.Config.GetProfile(ctx.ProfileName)
-		err = ctx.Player.PlayURL(track.AudioURL(), global.SampleRate)
+		global, _ := p.Config().GetProfile(p.Name())
+		err = p.Player().PlayURL(track.AudioURL(), global.SampleRate)
 		if err != nil {
 			return err
 		}
 
-		ctx.Output.Display("Playing: " + track.Title())
+		p.Output().Display("Playing: " + track.Title())
 	} else {
-		ctx.Output.Display("Queue is empty")
-		ctx.Player.Stop()
+		p.Output().Display("Queue is empty")
+		p.Player().Stop()
 	}
 
 	return nil
