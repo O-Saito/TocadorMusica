@@ -15,6 +15,7 @@ Each Perfil must contain:
 - Audio output (pick one)
 - Context for cancellation
 - Dedicated logger instance
+- Command handler
 
 ## Queue
 - FIFO
@@ -155,14 +156,18 @@ music_folders=
 - Logger must be injected (no global logger)
 - Logger must be interface-based
 - Log level configurable via .config
+- Log level empty is no log at all (into the console)
 
 ### Track
 ```
+TrackType YouTube|File
+
 type Track struct {
-    URL         string
-    Title       string
-    Description string
-    AudioURL    string
+  URL         string
+  Title       string
+  Description string
+  AudioURL    string
+  Type        TrackType
 }
 ```
 
@@ -170,6 +175,7 @@ type Track struct {
 - The youtube data should be fetched by yt-dlp
 - The audio stream should be fetched by ffmpeg
 - The search should only happen when the input is not a youtube URL and was not found on a directory 
+- Audio url is in Formats->When resolution is "audio only" get URL
 - The data of a video should be 
 ```
   URL: Video URL
