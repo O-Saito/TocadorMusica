@@ -1,6 +1,8 @@
 package commands
 
 import (
+	"fmt"
+
 	"tocadormusica/domain"
 )
 
@@ -31,17 +33,22 @@ func (c *NextCommand) Execute(p domain.PerfilInterface, args []string) error {
 			return nil
 		}
 
-		p.Logger().Debug("playing track", "title", track.Title(), "url", track.URL(), "audioURL", track.AudioURL())
+		p.Logger().Debug("playing track", "title", track.Title(), "url", track.URL())
 
-		if track.AudioURL() == "" {
-			p.Output().Display("Error: No audio URL available for this track")
-			return nil
+		audioURL := track.AudioURL()
+		if audioURL == "" {
+			p.Output().Display("Fetching audio URL...")
+			audioURL, err = p.YtService().GetAudioURL(p.Context(), track.URL())
+			if err != nil {
+				return fmt.Errorf("failed to get audio URL: %w", err)
+			}
+			track.SetAudioURL(audioURL)
 		}
 
 		p.Output().Display("Streaming: " + track.Title())
 
 		global, _ := p.Config().GetProfile(p.Name())
-		err = p.Player().PlayURL(track.AudioURL(), global.SampleRate)
+		err = p.Player().PlayURL(audioURL, global.SampleRate)
 		if err != nil {
 			return err
 		}
