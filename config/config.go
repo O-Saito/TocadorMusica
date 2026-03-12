@@ -20,6 +20,7 @@ var (
 type ProfileConfig struct {
 	Volume        float64
 	SearchResults int
+	AutoPlay      bool
 }
 
 type GlobalConfig struct {
@@ -33,6 +34,8 @@ type Config interface {
 	GetProfile(profileName string) (GlobalConfig, ProfileConfig)
 	SetVolume(profileName string, volume float64)
 	SetSearchResults(profileName string, results int)
+	SetAutoPlay(profileName string, autoPlay bool)
+	GetAutoPlay(profileName string) bool
 	Save() error
 	Validate() error
 }
@@ -78,6 +81,7 @@ func Load(path string) (Config, error) {
 					cfg.profiles[currentSection] = ProfileConfig{
 						Volume:        0.5,
 						SearchResults: 10,
+						AutoPlay:      true,
 					}
 				}
 				continue
@@ -122,6 +126,8 @@ func Load(path string) (Config, error) {
 					if v, err := strconv.Atoi(value); err == nil && v > 0 {
 						profile.SearchResults = v
 					}
+				case "auto_play":
+					profile.AutoPlay = value == "true"
 				}
 				cfg.profiles[currentSection] = profile
 			}
@@ -132,6 +138,7 @@ func Load(path string) (Config, error) {
 		cfg.profiles[defaultProfileName] = ProfileConfig{
 			Volume:        0.5,
 			SearchResults: 10,
+			AutoPlay:      true,
 		}
 	}
 
@@ -195,6 +202,35 @@ func (c *config) SetSearchResults(profileName string, results int) {
 	c.saveLocked()
 }
 
+func (c *config) SetAutoPlay(profileName string, autoPlay bool) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if _, ok := c.profiles[profileName]; !ok {
+		profile := c.profiles[defaultProfileName]
+		profile.AutoPlay = autoPlay
+		c.profiles[profileName] = profile
+	} else {
+		profile := c.profiles[profileName]
+		profile.AutoPlay = autoPlay
+		c.profiles[profileName] = profile
+	}
+
+	c.saveLocked()
+}
+
+func (c *config) GetAutoPlay(profileName string) bool {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	profile, ok := c.profiles[profileName]
+	if !ok {
+		profile = c.profiles[defaultProfileName]
+	}
+
+	return profile.AutoPlay
+}
+
 func (c *config) Save() error {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -221,6 +257,7 @@ func (c *config) saveLocked() error {
 		lines = append(lines, fmt.Sprintf("[%s]", name))
 		lines = append(lines, fmt.Sprintf("volume=%.2f", profile.Volume))
 		lines = append(lines, fmt.Sprintf("search_results=%d", profile.SearchResults))
+		lines = append(lines, fmt.Sprintf("auto_play=%t", profile.AutoPlay))
 	}
 
 	content := strings.Join(lines, "\n")
