@@ -64,9 +64,6 @@ func (t *Track) IsValid() error {
 	if strings.TrimSpace(t.title) == "" {
 		return ErrEmptyTitle
 	}
-	if strings.TrimSpace(t.audioURL) == "" {
-		return ErrEmptyAudioURL
-	}
 	if strings.TrimSpace(string(t.Type)) == "" {
 		return ErrEmptyType
 	}
@@ -77,3 +74,7 @@ func (t Track) Title() string       { return t.title }
 func (t Track) URL() string         { return t.url }
 func (t Track) AudioURL() string    { return t.audioURL }
 func (t Track) Description() string { return t.description }
+
+func (t *Track) SetAudioURL(url string) {
+	t.audioURL = url
+}
