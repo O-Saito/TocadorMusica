@@ -46,6 +46,11 @@ func addURL(p domain.PerfilInterface, url string) error {
 
 	p.Output().Display("Added: " + track.Title())
 	p.Output().ShowQueue(p.GetQueueItems())
+
+	if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+		p.ExecuteCommand("play", nil)
+	}
+
 	return nil
 }
 
@@ -87,6 +92,11 @@ func searchAndAdd(p domain.PerfilInterface, query string) error {
 
 	p.Output().Display("Added: " + track.Title())
 	p.Output().ShowQueue(p.GetQueueItems())
+
+	if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+		p.ExecuteCommand("play", nil)
+	}
+
 	return nil
 }
 
