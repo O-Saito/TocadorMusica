@@ -77,7 +77,17 @@ func searchAndAdd(p domain.PerfilInterface, query string) error {
 		return nil
 	}
 
-	return addURL(p, results[idx].URL)
+	result := results[idx]
+	track := domain.NewTrackFromYouTube(result.URL, result.Title, "", "")
+
+	err = p.Queue().Enqueue(track)
+	if err != nil {
+		return fmt.Errorf("failed to add to queue: %w", err)
+	}
+
+	p.Output().Display("Added: " + track.Title())
+	p.Output().ShowQueue(p.GetQueueItems())
+	return nil
 }
 
 var _ Command = (*AddCommand)(nil)
