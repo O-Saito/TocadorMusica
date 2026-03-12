@@ -15,6 +15,8 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 	track, err := p.Queue().Peek()
 	if err != nil {
 		p.Output().Display("Queue is empty")
+		p.Player().Stop()
+		p.Output().ShowNowPlaying("")
 		return nil
 	}
 
