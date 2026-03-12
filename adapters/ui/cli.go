@@ -160,7 +160,7 @@ func (c *CLIinterface) DisplayOptions(options []string) <-chan int {
 		idxStr := <-c.responseChan
 		var idx int
 		fmt.Sscanf(idxStr, "%d", &idx)
-		ch <- idx
+		ch <- idx - 1
 	}()
 
 	c.isSearch = true
@@ -352,8 +352,8 @@ func (c *CLIinterface) renderSearch(options []string) {
 	content.WriteString(divider + "\n")
 
 	for i, opt := range options {
-		truncated := c.truncateTitle(opt, BoxWidth-9)
-		content.WriteString(fmt.Sprintf("  %d: %s\n", i, truncated))
+		truncated := c.truncateTitle(opt, BoxWidth-10)
+		content.WriteString(fmt.Sprintf(" %2d: %s\n", i+1, truncated))
 	}
 
 	content.WriteString(divider)
