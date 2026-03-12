@@ -4,6 +4,7 @@ import "context"
 
 type YouTubeService interface {
 	ParseURL(ctx context.Context, url string) (Track, error)
+	GetAudioURL(ctx context.Context, url string) (string, error)
 	Search(ctx context.Context, query string, maxResults int) ([]SearchResult, error)
 }
 
