@@ -6,7 +6,9 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+
 	"tocadormusica/domain"
+	"tocadormusica/logger"
 )
 
 type CommandRunner interface {
@@ -15,6 +17,7 @@ type CommandRunner interface {
 
 type youtubeService struct {
 	cmdRunner CommandRunner
+	log       logger.Logger
 }
 
 type realCommandRunner struct{}
@@ -31,12 +34,38 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 func New() domain.YouTubeService {
 	return &youtubeService{
 		cmdRunner: &realCommandRunner{},
+		log:       nil,
 	}
 }
 
 func NewWithRunner(runner CommandRunner) domain.YouTubeService {
 	return &youtubeService{
 		cmdRunner: runner,
+		log:       nil,
+	}
+}
+
+func NewWithRunnerAndLogger(runner CommandRunner, log logger.Logger) domain.YouTubeService {
+	return &youtubeService{
+		cmdRunner: runner,
+		log:       log,
+	}
+}
+
+func findFirstJSONLine(output string) string {
+	lines := strings.Split(output, "\n")
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if strings.HasPrefix(line, "{") {
+			return line
+		}
+	}
+	return ""
+}
+
+func (s *youtubeService) logError(msg string) {
+	if s.log != nil {
+		s.log.Error(msg)
 	}
 }
 
@@ -50,22 +79,66 @@ func (s *youtubeService) ParseURL(ctx context.Context, url string) (domain.Track
 		if ctx.Err() == context.DeadlineExceeded {
 			return domain.Track{}, fmt.Errorf("timeout: %w", ctx.Err())
 		}
+
+		jsonLine := findFirstJSONLine(output)
+		if jsonLine == "" {
+			errMsg := strings.TrimSpace(output)
+			if errMsg == "" {
+				errMsg = err.Error()
+			}
+			s.logError("yt-dlp error: " + errMsg)
+			return domain.Track{}, fmt.Errorf("yt-dlp error: %s", errMsg)
+		}
+
 		return domain.Track{}, fmt.Errorf("failed to execute yt-dlp: %w", err)
 	}
 
-	var video ytDlpVideo
-	if err := json.Unmarshal([]byte(output), &video); err != nil {
-		return domain.Track{}, fmt.Errorf("failed to parse json: %w", err)
+	jsonLine := findFirstJSONLine(output)
+	if jsonLine == "" {
+		s.logError("yt-dlp no valid JSON: " + output)
+		return domain.Track{}, fmt.Errorf("no valid JSON in yt-dlp output: %s", output)
 	}
 
-	audioURL := findAudioURL(video.Formats)
+	var video ytDlpVideo
+	if err := json.Unmarshal([]byte(jsonLine), &video); err != nil {
+		return domain.Track{}, fmt.Errorf("failed to parse json: %w", err)
+	}
 
 	return domain.NewTrackFromYouTube(
 		video.WebpageURL,
 		video.Title,
 		video.Description,
-		audioURL,
+		"",
 	), nil
+}
+
+func (s *youtubeService) GetAudioURL(ctx context.Context, url string) (string, error) {
+	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+		"--no-warnings",
+		"--skip-download",
+		"--get-url",
+		"-f", "bestaudio",
+		url)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return "", fmt.Errorf("timeout: %w", ctx.Err())
+		}
+
+		errMsg := strings.TrimSpace(output)
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		s.logError("yt-dlp error getting audio URL: " + errMsg)
+		return "", fmt.Errorf("yt-dlp error: %s", errMsg)
+	}
+
+	output = strings.TrimSpace(output)
+	if output == "" {
+		s.logError("yt-dlp returned empty audio URL")
+		return "", fmt.Errorf("no audio URL returned")
+	}
+
+	return output, nil
 }
 
 func durationToString(d interface{}) string {
@@ -96,6 +169,17 @@ func (s *youtubeService) Search(ctx context.Context, query string, maxResults in
 		if ctx.Err() == context.DeadlineExceeded {
 			return nil, fmt.Errorf("timeout: %w", ctx.Err())
 		}
+
+		jsonLine := findFirstJSONLine(output)
+		if jsonLine == "" {
+			errMsg := strings.TrimSpace(output)
+			if errMsg == "" {
+				errMsg = err.Error()
+			}
+			s.logError("yt-dlp search error: " + errMsg)
+			return nil, fmt.Errorf("yt-dlp error: %s", errMsg)
+		}
+
 		return nil, fmt.Errorf("failed to execute yt-dlp: %w", err)
 	}
 
