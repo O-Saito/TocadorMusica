@@ -48,6 +48,8 @@ func (m *mockPlayer) IsPlaying() bool {
 	return m.playing
 }
 
+func (m *mockPlayer) SetOnFinishedCallback(fn func()) {}
+
 func TestPlayer_MockPlay(t *testing.T) {
 	p := &mockPlayer{}
 

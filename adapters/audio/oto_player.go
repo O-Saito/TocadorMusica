@@ -16,17 +16,18 @@ import (
 var _ audio.Player = (*OtoPlayer)(nil)
 
 type OtoPlayer struct {
-	ctx      *oto.Context
-	ready    chan struct{}
-	player   *oto.Player
-	volume   float64
-	playing  int32
-	stopped  int32
-	ffCmd    *exec.Cmd
-	volumeMu sync.Mutex
-	playerMu sync.Mutex
-	ffmpegMu sync.Mutex
-	log      logger.Logger
+	ctx                *oto.Context
+	ready              chan struct{}
+	player             *oto.Player
+	volume             float64
+	playing            int32
+	stopped            int32
+	ffCmd              *exec.Cmd
+	volumeMu           sync.Mutex
+	playerMu           sync.Mutex
+	ffmpegMu           sync.Mutex
+	log                logger.Logger
+	onFinishedCallback func()
 }
 
 func NewOtoPlayer(sampleRate int, log logger.Logger) (*OtoPlayer, error) {
@@ -130,6 +131,9 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 
 		if atomic.LoadInt32(&p.stopped) == 0 {
 			atomic.StoreInt32(&p.playing, 0)
+			if p.onFinishedCallback != nil {
+				p.onFinishedCallback()
+			}
 		}
 	}()
 
@@ -197,4 +201,8 @@ func (p *OtoPlayer) Volume() float64 {
 
 func (p *OtoPlayer) IsPlaying() bool {
 	return atomic.LoadInt32(&p.playing) == 1
+}
+
+func (p *OtoPlayer) SetOnFinishedCallback(fn func()) {
+	p.onFinishedCallback = fn
 }

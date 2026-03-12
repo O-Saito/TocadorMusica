@@ -13,4 +13,5 @@ type Player interface {
 	SetVolume(volume float64)
 	Volume() float64
 	IsPlaying() bool
+	SetOnFinishedCallback(fn func())
 }

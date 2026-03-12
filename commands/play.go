@@ -24,11 +24,29 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 		return fmt.Errorf("no audio URL available for this track")
 	}
 
+	autoPlay := p.Config().GetAutoPlay(p.Name())
+
+	if autoPlay {
+		p.Player().SetOnFinishedCallback(func() {
+			if p.Config().GetAutoPlay(p.Name()) {
+				_, err := p.Queue().Dequeue()
+				if err != nil {
+					return
+				}
+				p.Output().ShowQueue(p.GetQueueItems())
+				p.ExecuteCommand("play", nil)
+			}
+		})
+	} else {
+		p.Player().SetOnFinishedCallback(nil)
+	}
+
 	p.Output().Display("Streaming: " + track.Title())
 
 	global, _ := p.Config().GetProfile(p.Name())
 	err = p.Player().PlayURL(track.AudioURL(), global.SampleRate)
 	if err != nil {
+		p.Player().SetOnFinishedCallback(nil)
 		return fmt.Errorf("failed to play: %w", err)
 	}
 

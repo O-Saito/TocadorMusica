@@ -38,6 +38,8 @@ func (m *mockPlayerPerfil) Volume() float64 {
 
 func (m *mockPlayerPerfil) IsPlaying() bool { return m.playing }
 
+func (m *mockPlayerPerfil) SetOnFinishedCallback(fn func()) {}
+
 type mockInputHandlerPerfil struct {
 	inputChan chan string
 }
@@ -112,6 +114,8 @@ func (m *mockConfig) GetProfile(profileName string) (config.GlobalConfig, config
 
 func (m *mockConfig) SetVolume(profileName string, volume float64)     {}
 func (m *mockConfig) SetSearchResults(profileName string, results int) {}
+func (m *mockConfig) SetAutoPlay(profileName string, autoPlay bool)    {}
+func (m *mockConfig) GetAutoPlay(profileName string) bool              { return true }
 func (m *mockConfig) Save() error                                      { return nil }
 func (m *mockConfig) Validate() error                                  { return nil }
 
