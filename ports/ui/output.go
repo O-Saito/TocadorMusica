@@ -5,4 +5,7 @@ type OutputHandler interface {
 	RequestInput(prompt string) <-chan string
 	DisplayOptions(options []string) <-chan int
 	FindUnknownCommand()
+	ShowQueue(items []string)
+	ShowNowPlaying(track string)
+	Refresh()
 }

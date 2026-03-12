@@ -14,6 +14,7 @@ func (c *QueueCommand) Description() string { return "Show queue size" }
 func (c *QueueCommand) Execute(p domain.PerfilInterface, args []string) error {
 	size := p.Queue().Size()
 	p.Output().Display(fmt.Sprintf("Queue size: %d", size))
+	p.Output().ShowQueue(p.GetQueueItems())
 	return nil
 }
 

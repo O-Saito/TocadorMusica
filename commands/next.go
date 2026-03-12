@@ -20,11 +20,14 @@ func (c *NextCommand) Execute(p domain.PerfilInterface, args []string) error {
 		return err
 	}
 
+	p.Output().ShowQueue(p.GetQueueItems())
+
 	if !p.Queue().IsEmpty() {
 		track, err := p.Queue().Peek()
 		if err != nil {
 			p.Output().Display("Queue is empty")
 			p.Player().Stop()
+			p.Output().ShowNowPlaying("")
 			return nil
 		}
 
@@ -44,9 +47,11 @@ func (c *NextCommand) Execute(p domain.PerfilInterface, args []string) error {
 		}
 
 		p.Output().Display("Playing: " + track.Title())
+		p.Output().ShowNowPlaying(track.Title())
 	} else {
 		p.Output().Display("Queue is empty")
 		p.Player().Stop()
+		p.Output().ShowNowPlaying("")
 	}
 
 	return nil

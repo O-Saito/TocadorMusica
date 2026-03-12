@@ -23,6 +23,8 @@ type PerfilInterface interface {
 	Context() context.Context
 	ExecuteCommand(name string, args []string)
 	SetCommandExecutor(exec CommandExecutor)
+	GetQueueItems() []string
+	GetNowPlaying() string
 	Start(ctx context.Context) error
 	Wait()
 }
@@ -111,6 +113,25 @@ func (p *perfil) Logger() logger.Logger {
 
 func (p *perfil) Context() context.Context {
 	return p.ctx
+}
+
+func (p *perfil) GetQueueItems() []string {
+	tracks := p.queue.All()
+	items := make([]string, len(tracks))
+	for i, track := range tracks {
+		items[i] = track.Title()
+	}
+	return items
+}
+
+func (p *perfil) GetNowPlaying() string {
+	if p.player.IsPlaying() {
+		track, err := p.queue.Peek()
+		if err == nil {
+			return track.Title()
+		}
+	}
+	return ""
 }
 
 func (p *perfil) Start(ctx context.Context) error {

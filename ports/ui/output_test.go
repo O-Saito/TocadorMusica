@@ -37,6 +37,12 @@ func (m *mockOutputHandler) DisplayOptions(options []string) <-chan int {
 
 func (m *mockOutputHandler) FindUnknownCommand() {}
 
+func (m *mockOutputHandler) ShowQueue(items []string) {}
+
+func (m *mockOutputHandler) ShowNowPlaying(track string) {}
+
+func (m *mockOutputHandler) Refresh() {}
+
 func TestOutputHandler_Display(t *testing.T) {
 	h := &mockOutputHandler{}
 

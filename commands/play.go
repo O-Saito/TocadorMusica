@@ -33,6 +33,7 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 	}
 
 	p.Output().Display("Playing: " + track.Title())
+	p.Output().ShowNowPlaying(track.Title())
 	return nil
 }
 

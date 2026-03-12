@@ -10,6 +10,7 @@ func (c *StopCommand) Description() string { return "Stop current track" }
 func (c *StopCommand) Execute(p domain.PerfilInterface, args []string) error {
 	p.Player().Stop()
 	p.Output().Display("Stopped")
+	p.Output().ShowNowPlaying("")
 	return nil
 }
 

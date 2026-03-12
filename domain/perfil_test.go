@@ -78,6 +78,12 @@ func (m *mockOutputHandlerPerfil) DisplayOptions(options []string) <-chan int {
 
 func (m *mockOutputHandlerPerfil) FindUnknownCommand() {}
 
+func (m *mockOutputHandlerPerfil) ShowQueue(items []string) {}
+
+func (m *mockOutputHandlerPerfil) ShowNowPlaying(track string) {}
+
+func (m *mockOutputHandlerPerfil) Refresh() {}
+
 type mockYouTubeService struct{}
 
 func (m *mockYouTubeService) ParseURL(ctx context.Context, url string) (Track, error) {

@@ -15,6 +15,7 @@ type Queue interface {
 	Enqueue(track Track) error
 	Dequeue() (Track, error)
 	Peek() (Track, error)
+	All() []Track
 	Clear()
 	Remove(index int) error
 	Size() int
@@ -68,6 +69,15 @@ func (q *queue) Peek() (Track, error) {
 	}
 
 	return q.tracks[0], nil
+}
+
+func (q *queue) All() []Track {
+	q.mu.RLock()
+	defer q.mu.RUnlock()
+
+	result := make([]Track, len(q.tracks))
+	copy(result, q.tracks)
+	return result
 }
 
 func (q *queue) Clear() {

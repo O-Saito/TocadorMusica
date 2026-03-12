@@ -28,6 +28,7 @@ func (e *cmdExecutor) ExecuteCommand(name string, args []string) {
 		if err != nil {
 			e.perfil.Output().Display("Error: " + err.Error())
 		}
+		e.perfil.Output().Refresh()
 	} else {
 		e.perfil.Output().FindUnknownCommand()
 	}
@@ -77,8 +78,7 @@ func main() {
 	player.SetVolume(profile.Volume)
 
 	cliinterface := cliui.NewCLIinterface()
-
-	showHelp(cliinterface)
+	cliinterface.SetProfileName(profileName)
 
 	perfil := domain.NewPerfil(
 		profileName,
@@ -94,6 +94,8 @@ func main() {
 
 	executor := &cmdExecutor{perfil: perfil}
 	perfil.SetCommandExecutor(executor)
+
+	cliinterface.Refresh()
 
 	ctx, cancel := context.WithCancel(context.Background())
 
@@ -114,11 +116,4 @@ func main() {
 	cancel()
 	perfil.Wait()
 	log.Info("shutdown complete")
-}
-
-func showHelp(cli *cliui.CLIinterface) {
-	cli.Display("===== Tocador de Musica =====")
-	for _, cmd := range commands.List() {
-		cli.Display(fmt.Sprintf("  %-8s: %s", cmd.Name(), cmd.Description()))
-	}
 }

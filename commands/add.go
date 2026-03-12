@@ -45,6 +45,7 @@ func addURL(p domain.PerfilInterface, url string) error {
 	}
 
 	p.Output().Display("Added: " + track.Title())
+	p.Output().ShowQueue(p.GetQueueItems())
 	return nil
 }
 
