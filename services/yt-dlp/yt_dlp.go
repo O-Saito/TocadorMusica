@@ -85,6 +85,10 @@ func durationToString(d interface{}) string {
 func (s *youtubeService) Search(ctx context.Context, query string, maxResults int) ([]domain.SearchResult, error) {
 	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
 		"--no-warnings",
+		"--no-playlist",
+		"--no-check-certificate",
+		"--geo-bypass",
+		"--flat-playlist",
 		"--skip-download",
 		"--dump-json",
 		fmt.Sprintf("ytsearch%d:%s", maxResults, query))
