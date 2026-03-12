@@ -89,7 +89,11 @@ func (m *mockOutputHandlerPerfil) Refresh() {}
 type mockYouTubeService struct{}
 
 func (m *mockYouTubeService) ParseURL(ctx context.Context, url string) (Track, error) {
-	return NewTrackFromYouTube(url, "Test Track", "Description", "http://audio.url"), nil
+	return NewTrackFromYouTube(url, "Test Track", "Description", ""), nil
+}
+
+func (m *mockYouTubeService) GetAudioURL(ctx context.Context, url string) (string, error) {
+	return "http://audio.url", nil
 }
 
 func (m *mockYouTubeService) Search(ctx context.Context, query string, maxResults int) ([]SearchResult, error) {
