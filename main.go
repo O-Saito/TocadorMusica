@@ -66,7 +66,7 @@ func main() {
 
 	log.Info("application starting", "volume", profile.Volume, "max_queue", global.MaxQueueSize, "sample_rate", global.SampleRate)
 
-	ytService := ytdlp.New()
+	ytService := ytdlp.NewWithRunnerAndLogger(nil, log)
 
 	queue := domain.NewQueue(global.MaxQueueSize)
 

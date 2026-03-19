@@ -115,15 +115,30 @@ func NewWithFile(profile string, fileLevel, consoleLevel Level, startTime string
 		consoleLevel: consoleLevel,
 	}
 
-	multiWriter := io.MultiWriter(logFile, filteredConsole)
+	writer := &multiWriter{
+		writers: []io.Writer{logFile, filteredConsole},
+	}
 
 	l := &logger{
-		output:  multiWriter,
+		output:  writer,
 		level:   fileLevel,
 		profile: profile,
 	}
 
 	return l, logFile, nil
+}
+
+type multiWriter struct {
+	writers []io.Writer
+}
+
+func (mw *multiWriter) Write(p []byte) (n int, err error) {
+	for _, w := range mw.writers {
+		if _, err := w.Write(p); err != nil {
+			return 0, err
+		}
+	}
+	return len(p), nil
 }
 
 func WithOutput(w io.Writer) Option {

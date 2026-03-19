@@ -1,6 +1,7 @@
 package ytdlp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -24,11 +25,14 @@ type realCommandRunner struct{}
 
 func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string) (string, error) {
 	cmd := exec.CommandContext(ctx, name, args...)
-	output, err := cmd.Output()
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	err := cmd.Run()
 	if err != nil {
-		return "", err
+		return stderr.String(), err
 	}
-	return string(output), nil
+	return stdout.String(), nil
 }
 
 func New() domain.YouTubeService {
@@ -46,6 +50,9 @@ func NewWithRunner(runner CommandRunner) domain.YouTubeService {
 }
 
 func NewWithRunnerAndLogger(runner CommandRunner, log logger.Logger) domain.YouTubeService {
+	if runner == nil {
+		runner = &realCommandRunner{}
+	}
 	return &youtubeService{
 		cmdRunner: runner,
 		log:       log,
