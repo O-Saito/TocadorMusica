@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"os"
 	"os/signal"
@@ -14,6 +15,7 @@ import (
 	"tocadormusica/config"
 	"tocadormusica/domain"
 	"tocadormusica/logger"
+	"tocadormusica/ports/ui"
 	"tocadormusica/services/yt-dlp"
 )
 
@@ -34,8 +36,35 @@ func (e *cmdExecutor) ExecuteCommand(name string, args []string) {
 	}
 }
 
+type Flags struct {
+	Interface string
+	Profile   string
+}
+
+func ParseFlags() *Flags {
+	interfaceName := flag.String("interface", "cli", "UI interface to use (cli)")
+	profileName := flag.String("profile", "main-perfil", "Profile name to use")
+	flag.Parse()
+
+	return &Flags{
+		Interface: *interfaceName,
+		Profile:   *profileName,
+	}
+}
+
+func GetCLI(profileName string) (ui.InputHandler, ui.OutputHandler, func(context.Context)) {
+	cliinterface := cliui.NewCLIinterface()
+	cliinterface.SetProfileName(profileName)
+	cliinterface.Refresh()
+
+	return cliinterface, cliinterface, func(ctx context.Context) {
+		cliinterface.Run(ctx)
+	}
+}
+
 func main() {
-	profileName := "main-perfil"
+	flags := ParseFlags()
+	profileName := flags.Profile
 
 	cfg, err := config.Load(".config")
 	if err != nil {
@@ -77,15 +106,25 @@ func main() {
 	}
 	player.SetVolume(profile.Volume)
 
-	cliinterface := cliui.NewCLIinterface()
-	cliinterface.SetProfileName(profileName)
+	var input ui.InputHandler
+	var output ui.OutputHandler
+	var runCLI func(context.Context)
+
+	switch flags.Interface {
+	case "cli":
+		input, output, runCLI = GetCLI(profileName)
+	default:
+		fmt.Fprintf(os.Stderr, "Unknown interface: %s\n", flags.Interface)
+		fmt.Fprintf(os.Stderr, "Available interfaces: cli\n")
+		os.Exit(1)
+	}
 
 	perfil := domain.NewPerfil(
 		profileName,
 		queue,
 		player,
-		cliinterface,
-		cliinterface,
+		input,
+		output,
 		ytService,
 		cfg,
 		log,
@@ -98,8 +137,6 @@ func main() {
 	volume := int(player.Volume() * 100)
 	perfil.NotifyVolumeChanged(volume)
 
-	cliinterface.Refresh()
-
 	ctx, cancel := context.WithCancel(context.Background())
 
 	if err := perfil.Start(ctx); err != nil {
@@ -107,7 +144,7 @@ func main() {
 		return
 	}
 
-	go cliinterface.Run(ctx)
+	go runCLI(ctx)
 
 	log.Info("application ready, press Ctrl+C to exit")
 
