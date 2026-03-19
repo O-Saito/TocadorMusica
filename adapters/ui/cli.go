@@ -254,11 +254,11 @@ func (c *CLIinterface) renderBox() {
 
 	titleContent := titleStyle.Width(BoxWidth - 2).Render("TOCADOR DE MUSICA")
 
-	autoplayStr := greenStyle.Render("[GREEN]")
+	autoplayStr := greenStyle.Render("Autoplay")
 	if !c.autoplay {
-		autoplayStr = redStyle.Render("[RED]")
+		autoplayStr = redStyle.Render("Autoplay")
 	}
-	statusContent := fmt.Sprintf("Volume: %d%% | Autoplay %s", c.volume, autoplayStr)
+	statusContent := fmt.Sprintf("Volume: %d%% | %s", c.volume, autoplayStr)
 	statusStyle := lipgloss.NewStyle().
 		Width(BoxWidth - 2).
 		Foreground(lipgloss.Color("75"))
