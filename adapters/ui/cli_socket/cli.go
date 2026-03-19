@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"runtime"
@@ -12,6 +13,7 @@ import (
 	"sync"
 
 	"tocadormusica/commands"
+	"tocadormusica/domain"
 	"tocadormusica/ports/ui"
 
 	"github.com/charmbracelet/lipgloss"
@@ -82,6 +84,7 @@ type CLIWebSocket struct {
 	mu           sync.Mutex
 	closed       bool
 
+	perfil        domain.PerfilInterface
 	profileName   string
 	queue         []string
 	nowPlaying    string
@@ -124,6 +127,10 @@ func NewCLIWebSocket() *CLIWebSocket {
 	)
 	cliWS.wsClient.SetMessageCallback(cliWS.onWSMessage)
 	return cliWS
+}
+
+func (c *CLIWebSocket) SetPerfil(perfil domain.PerfilInterface) {
+	c.perfil = perfil
 }
 
 func (c *CLIWebSocket) Input() <-chan string {
@@ -306,8 +313,6 @@ func (c *CLIWebSocket) onWSReconnecting() {
 }
 
 func (c *CLIWebSocket) onWSMessage(msg string) {
-	fmt.Printf("[DEBUG WS] Raw message received: %s\n", msg)
-
 	var wsMsg struct {
 		Type string `json:"type"`
 		Data struct {
@@ -317,35 +322,63 @@ func (c *CLIWebSocket) onWSMessage(msg string) {
 	}
 
 	if err := json.Unmarshal([]byte(msg), &wsMsg); err != nil {
-		fmt.Printf("[DEBUG WS] JSON parse error: %v\n", err)
 		return
 	}
-
-	fmt.Printf("[DEBUG WS] Parsed - Type: %s, Data.URL: %s, Filter: %s\n", wsMsg.Type, wsMsg.Data.URL, wsMsg.Filter)
 
 	if wsMsg.Type != "music_request" {
-		fmt.Printf("[DEBUG WS] Ignoring non-music_request type: %s\n", wsMsg.Type)
 		return
 	}
 
-	if !c.isYouTubeURL(wsMsg.Data.URL) {
-		fmt.Printf("[DEBUG WS] URL is not YouTube: %s\n", wsMsg.Data.URL)
+	formattedURL := c.formatYouTubeURL(wsMsg.Data.URL)
+	if formattedURL == "" {
 		return
 	}
 
-	command := "add " + wsMsg.Data.URL
-	fmt.Printf("[DEBUG WS] Sending to inputChan: %s\n", command)
+	if c.perfil != nil {
+		tracks := c.perfil.Queue().All()
+		for _, track := range tracks {
+			fmt.Printf("[DEBUG WS] Checking queue track: %s vs incoming: %s\n", track.URL(), formattedURL)
+			if track.URL() == formattedURL {
+				return
+			}
+		}
+	}
 
 	select {
-	case c.inputChan <- command:
-		fmt.Printf("[DEBUG WS] Successfully sent to inputChan\n")
+	case c.inputChan <- "add " + formattedURL:
 	default:
-		fmt.Printf("[DEBUG WS] FAILED to send to inputChan (channel full or blocked)\n")
 	}
 }
 
-func (c *CLIWebSocket) isYouTubeURL(url string) bool {
-	return strings.Contains(url, "youtube.com") || strings.Contains(url, "youtu.be")
+func (c *CLIWebSocket) formatYouTubeURL(rawURL string) string {
+	parsed, err := url.Parse(rawURL)
+	if err != nil {
+		return ""
+	}
+
+	host := parsed.Host
+	if host != "www.youtube.com" && host != "youtube.com" && host != "youtu.be" {
+		return ""
+	}
+
+	if host == "youtu.be" {
+		videoID := strings.TrimPrefix(parsed.Path, "/")
+		if videoID == "" {
+			return ""
+		}
+		return "https://www.youtube.com/watch?v=" + videoID
+	}
+
+	if parsed.Path != "/watch" {
+		return ""
+	}
+
+	videoID := parsed.Query().Get("v")
+	if videoID == "" {
+		return ""
+	}
+
+	return "https://www.youtube.com/watch?v=" + videoID
 }
 
 func (c *CLIWebSocket) handleConnect(args []string) {

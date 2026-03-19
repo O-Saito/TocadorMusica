@@ -147,6 +147,10 @@ func main() {
 	executor := &cmdExecutor{perfil: perfil}
 	perfil.SetCommandExecutor(executor)
 
+	if cliWS, ok := input.(*cliwebsocket.CLIWebSocket); ok {
+		cliWS.SetPerfil(perfil)
+	}
+
 	volume := int(player.Volume() * 100)
 	perfil.NotifyVolumeChanged(volume)
 
