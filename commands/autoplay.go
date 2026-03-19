@@ -19,6 +19,9 @@ func (c *AutoplayCommand) Execute(p domain.PerfilInterface, args []string) error
 	} else {
 		p.Output().Display("Autoplay: disabled")
 	}
+
+	volume := int(p.Player().Volume() * 100)
+	p.NotifyVolumeChanged(volume)
 	return nil
 }
 

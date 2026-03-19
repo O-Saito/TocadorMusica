@@ -42,6 +42,12 @@ var (
 	successStyle = lipgloss.NewStyle().
 			Foreground(lipgloss.Color("82"))
 
+	greenStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("82"))
+
+	redStyle = lipgloss.NewStyle().
+			Foreground(lipgloss.Color("196"))
+
 	boxStyle = lipgloss.NewStyle().
 			Border(lipgloss.RoundedBorder()).
 			BorderForeground(lipgloss.Color("69")).
@@ -80,6 +86,8 @@ type CLIinterface struct {
 	lastMessage string
 	isError     bool
 	isPaused    bool
+	volume      int
+	autoplay    bool
 }
 
 func NewCLIinterface() *CLIinterface {
@@ -209,6 +217,14 @@ func (c *CLIinterface) Refresh() {
 	c.RenderBox()
 }
 
+func (c *CLIinterface) ShowVolumeAndAutoplay(volume int, autoplay bool) {
+	c.mu.Lock()
+	c.volume = volume
+	c.autoplay = autoplay
+	c.mu.Unlock()
+	c.RenderBox()
+}
+
 func (c *CLIinterface) SetProfileName(name string) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
@@ -237,6 +253,16 @@ func (c *CLIinterface) renderBox() {
 	divider := strings.Repeat("─", BoxWidth-2)
 
 	titleContent := titleStyle.Width(BoxWidth - 2).Render("TOCADOR DE MUSICA")
+
+	autoplayStr := greenStyle.Render("[GREEN]")
+	if !c.autoplay {
+		autoplayStr = redStyle.Render("[RED]")
+	}
+	statusContent := fmt.Sprintf("Volume: %d%% | Autoplay %s", c.volume, autoplayStr)
+	statusStyle := lipgloss.NewStyle().
+		Width(BoxWidth - 2).
+		Foreground(lipgloss.Color("75"))
+	statusRow := statusStyle.Render(statusContent)
 
 	var nowPlayingContent string
 	if c.nowPlaying != "" {
@@ -267,6 +293,8 @@ func (c *CLIinterface) renderBox() {
 
 	var content strings.Builder
 	content.WriteString(titleContent + "\n")
+	content.WriteString(divider + "\n")
+	content.WriteString(statusRow + "\n")
 	content.WriteString(divider + "\n")
 	if nowPlayingContent != "" {
 		content.WriteString(nowPlayingContent + "\n")

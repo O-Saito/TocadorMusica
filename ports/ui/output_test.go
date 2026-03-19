@@ -41,6 +41,8 @@ func (m *mockOutputHandler) ShowQueue(items []string) {}
 
 func (m *mockOutputHandler) ShowNowPlaying(track string) {}
 
+func (m *mockOutputHandler) ShowVolumeAndAutoplay(volume int, autoplay bool) {}
+
 func (m *mockOutputHandler) Refresh() {}
 
 func TestOutputHandler_Display(t *testing.T) {

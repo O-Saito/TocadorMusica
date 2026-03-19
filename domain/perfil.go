@@ -23,6 +23,7 @@ type PerfilInterface interface {
 	SetCommandExecutor(exec CommandExecutor)
 	GetQueueItems() []string
 	GetNowPlaying() string
+	NotifyVolumeChanged(volume int)
 	Start(ctx context.Context) error
 	Wait()
 }
@@ -130,6 +131,11 @@ func (p *perfil) GetNowPlaying() string {
 		}
 	}
 	return ""
+}
+
+func (p *perfil) NotifyVolumeChanged(volume int) {
+	_, profile := p.cfg.GetProfile(p.name)
+	p.output.ShowVolumeAndAutoplay(volume, profile.AutoPlay)
 }
 
 func (p *perfil) Start(ctx context.Context) error {

@@ -95,6 +95,9 @@ func main() {
 	executor := &cmdExecutor{perfil: perfil}
 	perfil.SetCommandExecutor(executor)
 
+	volume := int(player.Volume() * 100)
+	perfil.NotifyVolumeChanged(volume)
+
 	cliinterface.Refresh()
 
 	ctx, cancel := context.WithCancel(context.Background())

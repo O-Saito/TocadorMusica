@@ -161,6 +161,10 @@ func (p *OtoPlayer) Resume() {
 }
 
 func (p *OtoPlayer) Stop() {
+	if p.onFinishedCallback != nil {
+		p.onFinishedCallback = nil
+	}
+
 	atomic.StoreInt32(&p.stopped, 1)
 
 	p.playerMu.Lock()

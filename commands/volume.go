@@ -28,6 +28,7 @@ func (c *VolumeCommand) Execute(p domain.PerfilInterface, args []string) error {
 	p.Player().SetVolume(float64(vol) / 100)
 	p.Config().SetVolume(p.Name(), float64(vol)/100)
 	p.Output().Display(fmt.Sprintf("Volume: %d%%", vol))
+	p.NotifyVolumeChanged(vol)
 	return nil
 }
 

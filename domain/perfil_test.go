@@ -84,6 +84,8 @@ func (m *mockOutputHandlerPerfil) ShowQueue(items []string) {}
 
 func (m *mockOutputHandlerPerfil) ShowNowPlaying(track string) {}
 
+func (m *mockOutputHandlerPerfil) ShowVolumeAndAutoplay(volume int, autoplay bool) {}
+
 func (m *mockOutputHandlerPerfil) Refresh() {}
 
 type mockYouTubeService struct{}

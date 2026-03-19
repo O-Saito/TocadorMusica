@@ -7,5 +7,6 @@ type OutputHandler interface {
 	FindUnknownCommand()
 	ShowQueue(items []string)
 	ShowNowPlaying(track string)
+	ShowVolumeAndAutoplay(volume int, autoplay bool)
 	Refresh()
 }
