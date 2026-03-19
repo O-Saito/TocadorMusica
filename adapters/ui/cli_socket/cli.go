@@ -337,7 +337,6 @@ func (c *CLIWebSocket) onWSMessage(msg string) {
 	if c.perfil != nil {
 		tracks := c.perfil.Queue().All()
 		for _, track := range tracks {
-			fmt.Printf("[DEBUG WS] Checking queue track: %s vs incoming: %s\n", track.URL(), formattedURL)
 			if track.URL() == formattedURL {
 				return
 			}
