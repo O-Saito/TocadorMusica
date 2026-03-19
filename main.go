@@ -11,6 +11,7 @@ import (
 
 	audioadapter "tocadormusica/adapters/audio"
 	cliui "tocadormusica/adapters/ui"
+	cliwebsocket "tocadormusica/adapters/ui/cli_socket"
 	"tocadormusica/commands"
 	"tocadormusica/config"
 	"tocadormusica/domain"
@@ -59,6 +60,16 @@ func GetCLI(profileName string) (ui.InputHandler, ui.OutputHandler, func(context
 
 	return cliinterface, cliinterface, func(ctx context.Context) {
 		cliinterface.Run(ctx)
+	}
+}
+
+func GetCLIWebSocket(profileName string) (ui.InputHandler, ui.OutputHandler, func(context.Context)) {
+	cliWS := cliwebsocket.NewCLIWebSocket()
+	cliWS.SetProfileName(profileName)
+	cliWS.Refresh()
+
+	return cliWS, cliWS, func(ctx context.Context) {
+		cliWS.Run(ctx)
 	}
 }
 
@@ -113,9 +124,11 @@ func main() {
 	switch flags.Interface {
 	case "cli":
 		input, output, runCLI = GetCLI(profileName)
+	case "cliwebsocket":
+		input, output, runCLI = GetCLIWebSocket(profileName)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown interface: %s\n", flags.Interface)
-		fmt.Fprintf(os.Stderr, "Available interfaces: cli\n")
+		fmt.Fprintf(os.Stderr, "Available interfaces: cli, cliwebsocket\n")
 		os.Exit(1)
 	}
 
