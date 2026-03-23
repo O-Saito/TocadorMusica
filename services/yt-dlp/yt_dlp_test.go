@@ -24,12 +24,7 @@ func (m *mockCommandRunner) Run(ctx context.Context, name string, args ...string
 }
 
 func TestParseURL_Success(t *testing.T) {
-	jsonOutput := `{
-		"webpage_url": "https://youtube.com/watch?v=test123",
-		"title": "Test Video",
-		"description": "Test description",
-		"formats": [{"url": "https://audio.url", "resolution": "audio only"}]
-	}`
+	jsonOutput := `{"webpage_url": "https://youtube.com/watch?v=test123", "title": "Test Video", "description": "Test description"}`
 
 	runner := &mockCommandRunner{output: jsonOutput}
 	svc := NewWithRunner(runner)
@@ -44,30 +39,6 @@ func TestParseURL_Success(t *testing.T) {
 	}
 	if track.Title() != "Test Video" {
 		t.Errorf("expected title Test Video, got %s", track.Title())
-	}
-	if track.AudioURL() != "https://audio.url" {
-		t.Errorf("expected audio URL https://audio.url, got %s", track.AudioURL())
-	}
-}
-
-func TestParseURL_AudioFormat(t *testing.T) {
-	jsonOutput := `{
-		"webpage_url": "https://youtube.com/watch?v=test",
-		"title": "Test",
-		"description": "Desc",
-		"formats": [
-			{"url": "https://video.url", "resolution": "1080p"},
-			{"url": "https://audio.url", "resolution": "audio only"}
-		]
-	}`
-
-	runner := &mockCommandRunner{output: jsonOutput}
-	svc := NewWithRunner(runner)
-
-	track, _ := svc.ParseURL(context.Background(), "https://youtube.com/watch?v=test")
-
-	if track.AudioURL() != "https://audio.url" {
-		t.Errorf("expected audio URL from audio only format, got %s", track.AudioURL())
 	}
 }
 
@@ -162,5 +133,39 @@ func TestTimeout(t *testing.T) {
 
 	if err == nil {
 		t.Error("expected error on timeout")
+	}
+}
+
+func TestParsePlaylist_Success(t *testing.T) {
+	jsonOutput := `{"webpage_url": "https://youtube.com/watch?v=1", "title": "Track 1", "description": "Desc 1"}
+{"webpage_url": "https://youtube.com/watch?v=2", "title": "Track 2", "description": "Desc 2"}`
+
+	runner := &mockCommandRunner{output: jsonOutput}
+	svc := NewWithRunner(runner)
+
+	tracks, err := svc.ParsePlaylist(context.Background(), "https://youtube.com/playlist?list=test")
+
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(tracks) != 2 {
+		t.Errorf("expected 2 tracks, got %d", len(tracks))
+	}
+	if tracks[0].Title() != "Track 1" {
+		t.Errorf("expected first track title 'Track 1', got %s", tracks[0].Title())
+	}
+	if tracks[1].Title() != "Track 2" {
+		t.Errorf("expected second track title 'Track 2', got %s", tracks[1].Title())
+	}
+}
+
+func TestParsePlaylist_Error(t *testing.T) {
+	runner := &mockCommandRunner{err: errors.New("command failed")}
+	svc := NewWithRunner(runner)
+
+	_, err := svc.ParsePlaylist(context.Background(), "https://youtube.com/playlist?list=test")
+
+	if err == nil {
+		t.Error("expected error")
 	}
 }

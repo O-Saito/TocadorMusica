@@ -105,6 +105,13 @@ func (m *mockYouTubeService) Search(ctx context.Context, query string, maxResult
 	}, nil
 }
 
+func (m *mockYouTubeService) ParsePlaylist(ctx context.Context, url string) ([]Track, error) {
+	return []Track{
+		NewTrackFromYouTube("http://yt.com/1", "Playlist Track 1", "", ""),
+		NewTrackFromYouTube("http://yt.com/2", "Playlist Track 2", "", ""),
+	}, nil
+}
+
 type mockConfig struct{}
 
 func (m *mockConfig) GetProfile(profileName string) (config.GlobalConfig, config.ProfileConfig) {

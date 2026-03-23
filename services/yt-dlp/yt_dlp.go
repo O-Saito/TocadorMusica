@@ -214,6 +214,47 @@ func (s *youtubeService) Search(ctx context.Context, query string, maxResults in
 	return results, nil
 }
 
+func (s *youtubeService) ParsePlaylist(ctx context.Context, url string) ([]domain.Track, error) {
+	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+		"--no-warnings",
+		"--flat-playlist",
+		"--skip-download",
+		"--dump-json",
+		url)
+	if err != nil {
+		if ctx.Err() == context.DeadlineExceeded {
+			return nil, fmt.Errorf("timeout: %w", ctx.Err())
+		}
+
+		s.logError("yt-dlp playlist error: " + err.Error())
+		return nil, fmt.Errorf("failed to execute yt-dlp: %w", err)
+	}
+
+	lines := strings.Split(strings.TrimSpace(output), "\n")
+	tracks := make([]domain.Track, 0, len(lines))
+
+	for _, line := range lines {
+		line = strings.TrimSpace(line)
+		if line == "" {
+			continue
+		}
+
+		var video ytDlpVideo
+		if err := json.Unmarshal([]byte(line), &video); err != nil {
+			continue
+		}
+
+		tracks = append(tracks, domain.NewTrackFromYouTube(
+			video.WebpageURL,
+			video.Title,
+			video.Description,
+			"",
+		))
+	}
+
+	return tracks, nil
+}
+
 func findAudioURL(formats []ytDlpFormat) string {
 	for _, f := range formats {
 		if f.Resolution == "audio only" {

@@ -31,7 +31,72 @@ func isYouTubeURL(input string) bool {
 		strings.Contains(input, "youtu.be")
 }
 
+func hasPlaylistParam(url string) bool {
+	return strings.Contains(url, "list=") ||
+		strings.Contains(url, "/playlist")
+}
+
+func stripPlaylistParam(url string) string {
+	if strings.Contains(url, "list=") {
+		parts := strings.Split(url, "list=")
+		base := parts[0]
+		if idx := strings.Index(base, "?"); idx != -1 {
+			base = base[:idx]
+		}
+		if len(parts) > 1 {
+			rest := parts[1]
+			if ampIdx := strings.Index(rest, "&"); ampIdx != -1 {
+				rest = rest[ampIdx+1:]
+				if len(rest) > 0 {
+					if !strings.HasSuffix(base, "?") {
+						base += "?"
+					}
+					base += rest
+				}
+			}
+		}
+		if strings.HasSuffix(base, "?") {
+			base = strings.TrimSuffix(base, "?")
+		}
+		return base
+	}
+	return url
+}
+
 func addURL(p domain.PerfilInterface, url string) error {
+	if hasPlaylistParam(url) {
+		p.Output().Display("This URL contains a playlist")
+
+		options := []string{"Add full playlist", "Add current video only"}
+		ch := p.Output().DisplayOptions(options)
+		choice := <-ch
+
+		if choice == 0 {
+			p.Output().Display("Fetching playlist...")
+			tracks, err := p.YtService().ParsePlaylist(p.Context(), url)
+			if err != nil {
+				return fmt.Errorf("failed to fetch playlist: %w", err)
+			}
+
+			p.Output().Display(fmt.Sprintf("Adding %d tracks:", len(tracks)))
+			for _, track := range tracks {
+				err := p.Queue().Enqueue(track)
+				if err != nil {
+					return fmt.Errorf("failed to add to queue: %w", err)
+				}
+				p.Output().Display("  + " + track.Title())
+			}
+			p.Output().ShowQueue(p.GetQueueItems())
+
+			if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+				p.ExecuteCommand("play", nil)
+			}
+			return nil
+		}
+
+		url = stripPlaylistParam(url)
+	}
+
 	p.Output().Display("Fetching track...")
 
 	track, err := p.YtService().ParseURL(p.Context(), url)

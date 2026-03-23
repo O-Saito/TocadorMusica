@@ -64,6 +64,9 @@ func (t *Track) IsValid() error {
 	if strings.TrimSpace(t.title) == "" {
 		return ErrEmptyTitle
 	}
+	if strings.TrimSpace(t.audioURL) == "" {
+		return ErrEmptyAudioURL
+	}
 	if strings.TrimSpace(string(t.Type)) == "" {
 		return ErrEmptyType
 	}
