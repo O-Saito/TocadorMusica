@@ -25,7 +25,10 @@
 [yt-dlp installation guid](https://github.com/yt-dlp/yt-dlp?tab=readme-ov-file#installation)
 
 ### DENO
-macOS | Linux
-    `curl -fsSL https://deno.land/install.sh | sh`
-Windows (Power Shell)
-    `irm https://deno.land/install.ps1 | iex`
+macOS | Linux 
+
+`curl -fsSL https://deno.land/install.sh | sh`
+    
+Windows (Power Shell) 
+
+`irm https://deno.land/install.ps1 | iex`
