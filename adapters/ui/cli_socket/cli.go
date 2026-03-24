@@ -84,20 +84,21 @@ type CLIWebSocket struct {
 	mu           sync.Mutex
 	closed       bool
 
-	perfil        domain.PerfilInterface
-	profileName   string
-	queue         []string
-	nowPlaying    string
-	duration      string
-	isSearch      bool
-	lastMessage   string
-	isError       bool
-	isPaused      bool
-	volume        int
-	autoplay      bool
-	socketStatus  int
-	extraCommands []string
-	wsClient      *wsClient
+	perfil         domain.PerfilInterface
+	profileName    string
+	queue          []string
+	nowPlaying     string
+	duration       string
+	isSearch       bool
+	lastMessage    string
+	isError        bool
+	isPaused       bool
+	volume         int
+	autoplay       bool
+	socketStatus   int
+	extraCommands  []string
+	wsClient       *wsClient
+	defaultAddress string
 }
 
 const (
@@ -107,16 +108,18 @@ const (
 	SocketStatusConnected    = 3
 )
 
-func NewCLIWebSocket() *CLIWebSocket {
+func NewCLIWebSocket(defaultAddress string) *CLIWebSocket {
 	cliWS := &CLIWebSocket{
-		reader:       bufio.NewReader(os.Stdin),
-		inputChan:    make(chan string, 10),
-		responseChan: make(chan string),
-		socketStatus: SocketStatusDisconnected,
+		reader:         bufio.NewReader(os.Stdin),
+		inputChan:      make(chan string, 10),
+		responseChan:   make(chan string),
+		socketStatus:   SocketStatusDisconnected,
+		defaultAddress: defaultAddress,
 		extraCommands: []string{
-			"  connect    : Connect to WebSocket server (ws://ip:port/path)",
-			"  disconnect : Disconnect from WebSocket server",
-			"  status     : Show WebSocket connection status",
+			"  address     : Set/show WebSocket address",
+			"  connect     : Connect to WebSocket server (ws://ip:port/path)",
+			"  disconnect  : Disconnect from WebSocket server",
+			"  status      : Show WebSocket connection status",
 		},
 		wsClient: newWSClient(),
 	}
@@ -169,6 +172,21 @@ func (c *CLIWebSocket) Run(ctx context.Context) {
 
 		if strings.HasPrefix(line, "connect ") {
 			c.handleConnect(strings.Fields(line)[1:])
+			continue
+		}
+
+		if strings.TrimSpace(line) == "connect" {
+			c.handleConnect([]string{})
+			continue
+		}
+
+		if strings.HasPrefix(line, "address ") {
+			c.handleAddress(strings.Fields(line)[1:])
+			continue
+		}
+
+		if strings.TrimSpace(line) == "address" {
+			c.handleAddress([]string{})
 			continue
 		}
 
@@ -286,6 +304,12 @@ func (c *CLIWebSocket) GetSocketStatus() int {
 	return c.socketStatus
 }
 
+func (c *CLIWebSocket) SetAddress(addr string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.defaultAddress = addr
+}
+
 func (c *CLIWebSocket) onWSConnect() {
 	c.mu.Lock()
 	c.socketStatus = SocketStatusConnected
@@ -381,16 +405,24 @@ func (c *CLIWebSocket) formatYouTubeURL(rawURL string) string {
 }
 
 func (c *CLIWebSocket) handleConnect(args []string) {
+	addr := ""
 	if len(args) == 0 {
-		c.Display("Error: usage: connect ws://ip:port/path")
-		return
+		if c.defaultAddress == "" {
+			c.Display("Error: no address configured. Use 'address ws://ip:port/path' to set one.")
+			return
+		}
+		addr = c.defaultAddress
+	} else {
+		addr = args[0]
 	}
-
-	addr := args[0]
 
 	if !strings.Contains(addr, "://") {
 		c.Display("Error: usage: connect ws://ip:port/path")
 		return
+	}
+
+	if c.perfil != nil {
+		c.perfil.Config().SetCustomData(c.profileName, "cliwebsocket", map[string]string{"address": addr})
 	}
 
 	c.mu.Lock()
@@ -404,6 +436,35 @@ func (c *CLIWebSocket) handleConnect(args []string) {
 		c.mu.Unlock()
 		c.Display("Error: " + err.Error())
 	}
+}
+
+func (c *CLIWebSocket) handleAddress(args []string) {
+	_, profileCustomData := c.perfil.Config().GetCustomData(c.profileName)
+	currentAddr := ""
+	if profileCustomData != nil {
+		if data, ok := profileCustomData["cliwebsocket"]; ok {
+			currentAddr = data["address"]
+		}
+	}
+
+	if len(args) == 0 {
+		if currentAddr == "" {
+			c.Display("No address configured. Usage: address ws://ip:port/path")
+			return
+		}
+		c.Display("Current address: " + currentAddr)
+		return
+	}
+
+	addr := args[0]
+	if !strings.Contains(addr, "://") {
+		c.Display("Error: usage: address ws://ip:port/path")
+		return
+	}
+
+	c.perfil.Config().SetCustomData(c.profileName, "cliwebsocket", map[string]string{"address": addr})
+	c.SetAddress(addr)
+	c.Display("Address saved: " + addr)
 }
 
 func (c *CLIWebSocket) handleDisconnect() {

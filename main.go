@@ -68,8 +68,16 @@ func GetCLI(profileName string) (ui.InputHandler, ui.OutputHandler, func(context
 	}
 }
 
-func GetCLIWebSocket(profileName string) (ui.InputHandler, ui.OutputHandler, func(context.Context)) {
-	cliWS := cliwebsocket.NewCLIWebSocket()
+func GetCLIWebSocket(profileName string, cfg config.Config) (ui.InputHandler, ui.OutputHandler, func(context.Context)) {
+	_, profileCustomData := cfg.GetCustomData(profileName)
+	address := ""
+	if profileCustomData != nil {
+		if cliWSData, ok := profileCustomData["cliwebsocket"]; ok {
+			address = cliWSData["address"]
+		}
+	}
+
+	cliWS := cliwebsocket.NewCLIWebSocket(address)
 	cliWS.SetProfileName(profileName)
 	cliWS.Refresh()
 
@@ -194,7 +202,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := config.Load(findConfigPath())
+	tempLog := logger.New(logger.WithLevel("debug"))
+	cfg, err := config.Load(findConfigPath(), tempLog)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)
@@ -221,6 +230,8 @@ func main() {
 	}
 	defer closer.Close()
 
+	cfg.SetLogger(log)
+
 	log.Info("application starting", "volume", profile.Volume, "max_queue", global.MaxQueueSize, "sample_rate", global.SampleRate)
 
 	ytService := ytdlp.NewWithBinaryPathAndLogger(ytDlpPath, log)
@@ -242,7 +253,7 @@ func main() {
 	case "cli":
 		input, output, runCLI = GetCLI(profileName)
 	case "cliwebsocket":
-		input, output, runCLI = GetCLIWebSocket(profileName)
+		input, output, runCLI = GetCLIWebSocket(profileName, cfg)
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown interface: %s\n", flags.Interface)
 		fmt.Fprintf(os.Stderr, "Available interfaces: cli, cliwebsocket\n")
