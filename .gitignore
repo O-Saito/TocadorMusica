@@ -2,3 +2,4 @@
 Session
 *.exe
 *.config
+.config
