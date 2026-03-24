@@ -28,9 +28,14 @@ type OtoPlayer struct {
 	ffmpegMu           sync.Mutex
 	log                logger.Logger
 	onFinishedCallback func()
+	ffmpegPath         string
 }
 
 func NewOtoPlayer(sampleRate int, log logger.Logger) (*OtoPlayer, error) {
+	return NewOtoPlayerWithFFmpeg(sampleRate, log, "ffmpeg")
+}
+
+func NewOtoPlayerWithFFmpeg(sampleRate int, log logger.Logger, ffmpegPath string) (*OtoPlayer, error) {
 	opts := &oto.NewContextOptions{
 		SampleRate:   sampleRate,
 		ChannelCount: 2,
@@ -46,10 +51,11 @@ func NewOtoPlayer(sampleRate int, log logger.Logger) (*OtoPlayer, error) {
 	<-ready
 
 	return &OtoPlayer{
-		ctx:    ctx,
-		ready:  ready,
-		volume: 1.0,
-		log:    log,
+		ctx:        ctx,
+		ready:      ready,
+		volume:     1.0,
+		log:        log,
+		ffmpegPath: ffmpegPath,
 	}, nil
 }
 
@@ -84,7 +90,7 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 	stderrBuf := &bytes.Buffer{}
 
 	p.ffmpegMu.Lock()
-	p.ffCmd = exec.Command("ffmpeg",
+	p.ffCmd = exec.Command(p.ffmpegPath,
 		"-reconnect", "1",
 		"-reconnect_streamed", "1",
 		"-reconnect_delay_max", "5",

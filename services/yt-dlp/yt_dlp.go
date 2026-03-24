@@ -17,8 +17,9 @@ type CommandRunner interface {
 }
 
 type youtubeService struct {
-	cmdRunner CommandRunner
-	log       logger.Logger
+	cmdRunner  CommandRunner
+	log        logger.Logger
+	binaryPath string
 }
 
 type realCommandRunner struct{}
@@ -37,15 +38,17 @@ func (r *realCommandRunner) Run(ctx context.Context, name string, args ...string
 
 func New() domain.YouTubeService {
 	return &youtubeService{
-		cmdRunner: &realCommandRunner{},
-		log:       nil,
+		cmdRunner:  &realCommandRunner{},
+		log:        nil,
+		binaryPath: "yt-dlp",
 	}
 }
 
 func NewWithRunner(runner CommandRunner) domain.YouTubeService {
 	return &youtubeService{
-		cmdRunner: runner,
-		log:       nil,
+		cmdRunner:  runner,
+		log:        nil,
+		binaryPath: "yt-dlp",
 	}
 }
 
@@ -54,8 +57,25 @@ func NewWithRunnerAndLogger(runner CommandRunner, log logger.Logger) domain.YouT
 		runner = &realCommandRunner{}
 	}
 	return &youtubeService{
-		cmdRunner: runner,
-		log:       log,
+		cmdRunner:  runner,
+		log:        log,
+		binaryPath: "yt-dlp",
+	}
+}
+
+func NewWithBinaryPath(binaryPath string) domain.YouTubeService {
+	return &youtubeService{
+		cmdRunner:  &realCommandRunner{},
+		log:        nil,
+		binaryPath: binaryPath,
+	}
+}
+
+func NewWithBinaryPathAndLogger(binaryPath string, log logger.Logger) domain.YouTubeService {
+	return &youtubeService{
+		cmdRunner:  &realCommandRunner{},
+		log:        log,
+		binaryPath: binaryPath,
 	}
 }
 
@@ -77,7 +97,7 @@ func (s *youtubeService) logError(msg string) {
 }
 
 func (s *youtubeService) ParseURL(ctx context.Context, url string) (domain.Track, error) {
-	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+	output, err := s.cmdRunner.Run(ctx, s.binaryPath,
 		"--no-warnings",
 		"--skip-download",
 		"--dump-json",
@@ -120,7 +140,7 @@ func (s *youtubeService) ParseURL(ctx context.Context, url string) (domain.Track
 }
 
 func (s *youtubeService) GetAudioURL(ctx context.Context, url string) (string, error) {
-	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+	output, err := s.cmdRunner.Run(ctx, s.binaryPath,
 		"--no-warnings",
 		"--skip-download",
 		"--get-url",
@@ -163,7 +183,7 @@ func durationToString(d interface{}) string {
 }
 
 func (s *youtubeService) Search(ctx context.Context, query string, maxResults int) ([]domain.SearchResult, error) {
-	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+	output, err := s.cmdRunner.Run(ctx, s.binaryPath,
 		"--no-warnings",
 		"--no-playlist",
 		"--no-check-certificate",
@@ -215,7 +235,7 @@ func (s *youtubeService) Search(ctx context.Context, query string, maxResults in
 }
 
 func (s *youtubeService) ParsePlaylist(ctx context.Context, url string) ([]domain.Track, error) {
-	output, err := s.cmdRunner.Run(ctx, "yt-dlp",
+	output, err := s.cmdRunner.Run(ctx, s.binaryPath,
 		"--no-warnings",
 		"--flat-playlist",
 		"--skip-download",

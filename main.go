@@ -1,11 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"os"
 	"os/signal"
+	"strings"
 	"syscall"
 	"time"
 
@@ -17,6 +19,7 @@ import (
 	"tocadormusica/domain"
 	"tocadormusica/logger"
 	"tocadormusica/ports/ui"
+	"tocadormusica/services/dependencies"
 	"tocadormusica/services/yt-dlp"
 )
 
@@ -29,6 +32,7 @@ func (e *cmdExecutor) ExecuteCommand(name string, args []string) {
 	if cmd != nil {
 		err := cmd.Execute(e.perfil, args)
 		if err != nil {
+			e.perfil.Logger().Error("command failed", "command", name, "error", err)
 			e.perfil.Output().Display("Error: " + err.Error())
 		}
 		e.perfil.Output().Refresh()
@@ -73,9 +77,113 @@ func GetCLIWebSocket(profileName string) (ui.InputHandler, ui.OutputHandler, fun
 	}
 }
 
+func checkDependencies() (string, string, string, error) {
+	deps := []dependencies.Dependency{
+		{Name: "yt-dlp", Required: true, DisplayName: "yt-dlp"},
+		{Name: "ffmpeg", Required: true, DisplayName: "ffmpeg"},
+		{Name: "deno", Required: false, DisplayName: "deno"},
+	}
+
+	ytDlpPath := ""
+	ffmpegPath := ""
+	denoPath := ""
+
+	reader := bufio.NewReader(os.Stdin)
+
+	for _, dep := range deps {
+		found, path := dependencies.FindCommand(dep.Name)
+		if found {
+			fmt.Printf("%s found at: %s\n", dep.DisplayName, path)
+			switch dep.Name {
+			case "yt-dlp":
+				ytDlpPath = path
+			case "ffmpeg":
+				ffmpegPath = path
+			case "deno":
+				denoPath = path
+			}
+			continue
+		}
+
+		if dep.Name == "ffmpeg" {
+			fmt.Println("ffmpeg not found.")
+			fmt.Println(dependencies.GetInstallMessage("ffmpeg"))
+			fmt.Println("Please install ffmpeg and run the program again.")
+			os.Exit(1)
+		}
+
+		requiredStr := "required"
+		if !dep.Required {
+			requiredStr = "optional"
+		}
+
+		for {
+			fmt.Printf("%s not found (%s). Download to ./src? (y/n): ", dep.DisplayName, requiredStr)
+			input, _ := reader.ReadString('\n')
+			input = strings.TrimSpace(input)
+
+			if input != "y" && input != "Y" {
+				fmt.Println(dependencies.GetInstallMessage(dep.Name))
+				if dep.Required {
+					fmt.Println("This dependency is required. Please accept to continue.")
+					continue
+				}
+				fmt.Printf("Skipping %s (optional)\n", dep.DisplayName)
+				break
+			}
+
+			for {
+				downloader := dependencies.NewDownloader()
+				if err := downloader.Download(&dep); err != nil {
+					fmt.Fprintf(os.Stderr, "Failed to download %s: %v\n", dep.Name, err)
+					fmt.Println("Download failed. Try again? (y/n)")
+					input2, _ := reader.ReadString('\n')
+					input2 = strings.TrimSpace(input2)
+					if input2 != "y" && input2 != "Y" {
+						if dep.Required {
+							os.Exit(1)
+						}
+						fmt.Printf("Skipping %s (optional)\n", dep.DisplayName)
+						break
+					}
+					continue
+				}
+
+				found, localPath := dependencies.FindCommand(dep.Name)
+				if !found {
+					fmt.Fprintf(os.Stderr, "Failed to find %s after download\n", dep.DisplayName)
+					if dep.Required {
+						os.Exit(1)
+					}
+					fmt.Printf("Skipping %s (optional)\n", dep.DisplayName)
+					break
+				}
+				switch dep.Name {
+				case "yt-dlp":
+					ytDlpPath = localPath
+				case "ffmpeg":
+					ffmpegPath = localPath
+				case "deno":
+					denoPath = localPath
+				}
+				break
+			}
+			break
+		}
+	}
+
+	return ytDlpPath, ffmpegPath, denoPath, nil
+}
+
 func main() {
 	flags := ParseFlags()
 	profileName := flags.Profile
+
+	ytDlpPath, ffmpegPath, _, err := checkDependencies()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Dependency check failed: %v\n", err)
+		os.Exit(1)
+	}
 
 	cfg, err := config.Load(".config")
 	if err != nil {
@@ -106,11 +214,11 @@ func main() {
 
 	log.Info("application starting", "volume", profile.Volume, "max_queue", global.MaxQueueSize, "sample_rate", global.SampleRate)
 
-	ytService := ytdlp.NewWithRunnerAndLogger(nil, log)
+	ytService := ytdlp.NewWithBinaryPathAndLogger(ytDlpPath, log)
 
 	queue := domain.NewQueue(global.MaxQueueSize)
 
-	player, err := audioadapter.NewOtoPlayer(global.SampleRate, log)
+	player, err := audioadapter.NewOtoPlayerWithFFmpeg(global.SampleRate, log, ffmpegPath)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create audio player: %v\n", err)
 		os.Exit(1)
