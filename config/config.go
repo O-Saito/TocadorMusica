@@ -42,20 +42,27 @@ type Config interface {
 	SetCustomData(profileName string, interfaceName string, data map[string]string)
 	Save() error
 	Validate() error
+	SetLogger(logger Logger)
 }
 
 type config struct {
 	mu       sync.RWMutex
 	path     string
+	logger   Logger
 	global   GlobalConfig
 	profiles map[string]ProfileConfig
 }
 
 const defaultProfileName = "default"
 
-func Load(path string) (Config, error) {
+type Logger interface {
+	Error(msg string, args ...interface{})
+}
+
+func Load(path string, log Logger) (Config, error) {
 	cfg := &config{
-		path: path,
+		path:   path,
+		logger: log,
 		global: GlobalConfig{
 			LogLevel:     "info",
 			MaxQueueSize: 500,
@@ -367,7 +374,13 @@ func (c *config) saveLocked() error {
 		content += "\n"
 	}
 
-	return os.WriteFile(c.path, []byte(content), 0644)
+	if err := os.WriteFile(c.path, []byte(content), 0644); err != nil {
+		if c.logger != nil {
+			c.logger.Error("failed to save config", "path", c.path, "error", err)
+		}
+		return err
+	}
+	return nil
 }
 
 func (c *config) Validate() error {
@@ -402,4 +415,10 @@ func (c *config) Validate() error {
 	}
 
 	return nil
+}
+
+func (c *config) SetLogger(logger Logger) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.logger = logger
 }

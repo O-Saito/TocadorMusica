@@ -6,6 +6,10 @@ import (
 	"testing"
 )
 
+type mockLogger struct{}
+
+func (m *mockLogger) Error(msg string, args ...interface{}) {}
+
 func TestLoadConfig(t *testing.T) {
 	content := `log_level=warn
 max_queue_size=100
@@ -26,7 +30,7 @@ search_results=5
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -58,7 +62,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 	defer os.Remove(tmpFile.Name())
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -74,7 +78,7 @@ func TestLoadConfig_Defaults(t *testing.T) {
 }
 
 func TestLoadConfig_FileNotFound(t *testing.T) {
-	_, err := Load("nonexistent_config_file")
+	_, err := Load("nonexistent_config_file", &mockLogger{})
 	if err != nil {
 		t.Error("expected no error for nonexistent file, got:", err)
 	}
@@ -99,7 +103,7 @@ search_results=10
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -125,7 +129,7 @@ search_results=10
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -153,7 +157,7 @@ search_results=10
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -179,7 +183,7 @@ search_results=10
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -208,7 +212,7 @@ search_results=10
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -244,7 +248,7 @@ search_results=5
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -284,7 +288,7 @@ search_results=7
 	}
 	tmpFile.Close()
 
-	cfg, err := Load(tmpFile.Name())
+	cfg, err := Load(tmpFile.Name(), &mockLogger{})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
