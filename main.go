@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"path/filepath"
 	"strings"
 	"syscall"
 	"time"
@@ -175,6 +176,14 @@ func checkDependencies() (string, string, string, error) {
 	return ytDlpPath, ffmpegPath, denoPath, nil
 }
 
+func findConfigPath() string {
+	execPath, err := os.Executable()
+	if err != nil {
+		return ".config"
+	}
+	return filepath.Join(filepath.Dir(execPath), ".config")
+}
+
 func main() {
 	flags := ParseFlags()
 	profileName := flags.Profile
@@ -185,7 +194,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	cfg, err := config.Load(".config")
+	cfg, err := config.Load(findConfigPath())
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to load config: %v\n", err)
 		os.Exit(1)
