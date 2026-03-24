@@ -21,6 +21,7 @@ type ProfileConfig struct {
 	Volume        float64
 	SearchResults int
 	AutoPlay      bool
+	CustomData    map[string]map[string]string
 }
 
 type GlobalConfig struct {
@@ -28,6 +29,7 @@ type GlobalConfig struct {
 	MaxQueueSize int
 	SampleRate   int
 	MusicFolders []string
+	CustomData   map[string]map[string]string
 }
 
 type Config interface {
@@ -36,6 +38,8 @@ type Config interface {
 	SetSearchResults(profileName string, results int)
 	SetAutoPlay(profileName string, autoPlay bool)
 	GetAutoPlay(profileName string) bool
+	GetCustomData(profileName string) (map[string]map[string]string, map[string]map[string]string)
+	SetCustomData(profileName string, interfaceName string, data map[string]string)
 	Save() error
 	Validate() error
 }
@@ -57,6 +61,7 @@ func Load(path string) (Config, error) {
 			MaxQueueSize: 500,
 			SampleRate:   44100,
 			MusicFolders: []string{},
+			CustomData:   make(map[string]map[string]string),
 		},
 		profiles: make(map[string]ProfileConfig),
 	}
@@ -82,6 +87,7 @@ func Load(path string) (Config, error) {
 						Volume:        0.5,
 						SearchResults: 10,
 						AutoPlay:      true,
+						CustomData:    make(map[string]map[string]string),
 					}
 				}
 				continue
@@ -114,6 +120,16 @@ func Load(path string) (Config, error) {
 					for i, folder := range cfg.global.MusicFolders {
 						cfg.global.MusicFolders[i] = strings.TrimSpace(folder)
 					}
+				default:
+					if strings.HasPrefix(key, "interface.") {
+						ifaceName := strings.TrimPrefix(key, "interface.")
+						if ifaceName != "" {
+							if cfg.global.CustomData == nil {
+								cfg.global.CustomData = make(map[string]map[string]string)
+							}
+							cfg.global.CustomData[ifaceName] = parseCustomData(value)
+						}
+					}
 				}
 			} else {
 				profile := cfg.profiles[currentSection]
@@ -128,6 +144,16 @@ func Load(path string) (Config, error) {
 					}
 				case "auto_play":
 					profile.AutoPlay = value == "true"
+				default:
+					if strings.HasPrefix(key, "interface.") {
+						ifaceName := strings.TrimPrefix(key, "interface.")
+						if ifaceName != "" {
+							if profile.CustomData == nil {
+								profile.CustomData = make(map[string]map[string]string)
+							}
+							profile.CustomData[ifaceName] = parseCustomData(value)
+						}
+					}
 				}
 				cfg.profiles[currentSection] = profile
 			}
@@ -139,10 +165,80 @@ func Load(path string) (Config, error) {
 			Volume:        0.5,
 			SearchResults: 10,
 			AutoPlay:      true,
+			CustomData:    make(map[string]map[string]string),
 		}
 	}
 
 	return cfg, nil
+}
+
+func parseCustomData(value string) map[string]string {
+	result := make(map[string]string)
+	if value == "" {
+		return result
+	}
+	pairs := strings.Split(value, ";")
+	for _, pair := range pairs {
+		kv := strings.SplitN(pair, ":", 2)
+		if len(kv) == 2 {
+			key := strings.TrimSpace(kv[0])
+			val := strings.TrimSpace(kv[1])
+			if key != "" {
+				result[key] = val
+			}
+		}
+	}
+	return result
+}
+
+func serializeCustomData(data map[string]map[string]string) string {
+	var parts []string
+	for name, kv := range data {
+		var pairs []string
+		for k, v := range kv {
+			pairs = append(pairs, k+":"+v)
+		}
+		parts = append(parts, "interface."+name+"="+strings.Join(pairs, ";"))
+	}
+	return strings.Join(parts, "\n")
+}
+
+func (c *config) GetCustomData(profileName string) (map[string]map[string]string, map[string]map[string]string) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+
+	profile, ok := c.profiles[profileName]
+	if !ok {
+		profile = c.profiles[defaultProfileName]
+	}
+
+	return c.global.CustomData, profile.CustomData
+}
+
+func (c *config) SetCustomData(profileName string, interfaceName string, data map[string]string) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if profileName == "" {
+		profileName = defaultProfileName
+	}
+
+	profile, ok := c.profiles[profileName]
+	if !ok {
+		profile = ProfileConfig{
+			Volume:        0.5,
+			SearchResults: 10,
+			AutoPlay:      true,
+			CustomData:    make(map[string]map[string]string),
+		}
+	}
+
+	if profile.CustomData == nil {
+		profile.CustomData = make(map[string]map[string]string)
+	}
+	profile.CustomData[interfaceName] = data
+	c.profiles[profileName] = profile
+	c.saveLocked()
 }
 
 func (c *config) GetProfile(profileName string) (GlobalConfig, ProfileConfig) {
@@ -246,6 +342,9 @@ func (c *config) saveLocked() error {
 	if len(c.global.MusicFolders) > 0 {
 		lines = append(lines, fmt.Sprintf("music_folders=%s", strings.Join(c.global.MusicFolders, ",")))
 	}
+	if len(c.global.CustomData) > 0 {
+		lines = append(lines, serializeCustomData(c.global.CustomData))
+	}
 
 	profileNames := make([]string, 0, len(c.profiles))
 	for name := range c.profiles {
@@ -258,6 +357,9 @@ func (c *config) saveLocked() error {
 		lines = append(lines, fmt.Sprintf("volume=%.2f", profile.Volume))
 		lines = append(lines, fmt.Sprintf("search_results=%d", profile.SearchResults))
 		lines = append(lines, fmt.Sprintf("auto_play=%t", profile.AutoPlay))
+		if len(profile.CustomData) > 0 {
+			lines = append(lines, serializeCustomData(profile.CustomData))
+		}
 	}
 
 	content := strings.Join(lines, "\n")
