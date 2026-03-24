@@ -129,8 +129,14 @@ func (m *mockConfig) SetVolume(profileName string, volume float64)     {}
 func (m *mockConfig) SetSearchResults(profileName string, results int) {}
 func (m *mockConfig) SetAutoPlay(profileName string, autoPlay bool)    {}
 func (m *mockConfig) GetAutoPlay(profileName string) bool              { return true }
-func (m *mockConfig) Save() error                                      { return nil }
-func (m *mockConfig) Validate() error                                  { return nil }
+func (m *mockConfig) GetCustomData(profileName string) (map[string]map[string]string, map[string]map[string]string) {
+	return nil, nil
+}
+func (m *mockConfig) SetCustomData(profileName string, interfaceName string, data map[string]string) {
+}
+func (m *mockConfig) Save() error                    { return nil }
+func (m *mockConfig) Validate() error                { return nil }
+func (m *mockConfig) SetLogger(logger config.Logger) {}
 
 func TestPerfil_New(t *testing.T) {
 	queue := NewQueue(100)
