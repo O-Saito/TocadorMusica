@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"bufio"
 	"bytes"
 	"fmt"
 	"io"
@@ -110,13 +111,15 @@ func NewWithFile(profile string, fileLevel, consoleLevel Level, startTime string
 		return nil, nil, fmt.Errorf("failed to create log file: %w", err)
 	}
 
+	bufFile := bufio.NewWriter(logFile)
+
 	filteredConsole := &filteredWriter{
 		w:            os.Stdout,
 		consoleLevel: consoleLevel,
 	}
 
 	writer := &multiWriter{
-		writers: []io.Writer{logFile, filteredConsole},
+		writers: []io.Writer{bufFile, filteredConsole},
 	}
 
 	l := &logger{
@@ -125,7 +128,19 @@ func NewWithFile(profile string, fileLevel, consoleLevel Level, startTime string
 		profile: profile,
 	}
 
-	return l, logFile, nil
+	return l, &logCloser{bufFile, logFile}, nil
+}
+
+type logCloser struct {
+	buf *bufio.Writer
+	f   *os.File
+}
+
+func (c *logCloser) Close() error {
+	if err := c.buf.Flush(); err != nil {
+		return err
+	}
+	return c.f.Close()
 }
 
 type multiWriter struct {
