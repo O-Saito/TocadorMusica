@@ -36,7 +36,7 @@ type PerfilInterface interface {
 	StartBackground() error
 	IsBackgroundPlaying() bool
 	IsBackgroundPaused() bool
-	GetBackgroundTrack() string
+	GetBackgroundTrack() Track
 	GetBackgroundPosition() int
 	SetBackgroundPosition(position int)
 }
@@ -59,7 +59,7 @@ type perfil struct {
 	ctx                 context.Context
 	cancel              context.CancelFunc
 	done                chan struct{}
-	backgroundTrack     string
+	backgroundTrack     Track
 	backgroundPosition  int
 	backgroundIsActive  bool
 	backgroundStartedAt time.Time
@@ -211,7 +211,7 @@ func (p *perfil) handleInput(input string) {
 }
 
 func (p *perfil) SetBackground(trackPath string) error {
-	p.backgroundTrack = trackPath
+	p.backgroundTrack = NewTrackFromFile(trackPath)
 	p.backgroundPosition = 0
 	p.backgroundIsActive = true
 	p.backgroundStartedAt = time.Now()
@@ -224,8 +224,8 @@ func (p *perfil) SetBackground(trackPath string) error {
 		return err
 	}
 
-	p.Output().ShowBackground(trackPath, 0, true, false)
-	p.Output().Display("Background music set: " + trackPath)
+	p.Output().ShowBackground(p.backgroundTrack.Title(), 0, true, false)
+	p.Output().Display("Background music set: " + p.backgroundTrack.Title())
 	return nil
 }
 
@@ -233,18 +233,18 @@ func (p *perfil) StopBackground() {
 	if p.backgroundIsActive && p.player.IsPlaying() {
 		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
 	}
-	track := p.backgroundTrack
+	title := p.backgroundTrack.Title()
 	pos := p.backgroundPosition
 	p.player.Stop()
 	p.backgroundIsActive = false
-	p.Output().ShowBackground(track, pos, false, false)
+	p.Output().ShowBackground(title, pos, false, false)
 }
 
 func (p *perfil) ClearBackground() {
 	p.player.Stop()
 	p.backgroundIsActive = false
 	p.backgroundPaused = false
-	p.backgroundTrack = ""
+	p.backgroundTrack = Track{}
 	p.backgroundPosition = 0
 	p.Output().ShowBackground("", 0, false, false)
 	p.Output().Display("Background music cleared")
@@ -253,28 +253,28 @@ func (p *perfil) ClearBackground() {
 func (p *perfil) PauseBackground() {
 	if p.backgroundIsActive && p.player.IsPlaying() {
 		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
-		track := p.backgroundTrack
+		title := p.backgroundTrack.Title()
 		pos := p.backgroundPosition
 		p.player.Pause()
 		p.backgroundPaused = true
-		p.Output().ShowBackground(track, pos, false, true)
+		p.Output().ShowBackground(title, pos, false, true)
 		p.Output().Display("Background paused")
 	}
 }
 
 func (p *perfil) ResumeBackground() error {
-	if p.backgroundPaused && p.backgroundTrack != "" {
+	if p.backgroundPaused && p.backgroundTrack.Title() != "" {
 		p.backgroundPaused = false
 		p.backgroundStartedAt = time.Now()
 		p.backgroundStartedAt = p.backgroundStartedAt.Add(-time.Duration(p.backgroundPosition) * time.Second)
 
 		global, _ := p.cfg.GetProfile(p.Name())
-		err := p.player.PlayURLWithSeek(p.backgroundTrack, global.SampleRate, p.backgroundPosition)
+		err := p.player.PlayURLWithSeek(p.backgroundTrack.AudioURL(), global.SampleRate, p.backgroundPosition)
 		if err != nil {
 			return err
 		}
 
-		p.Output().ShowBackground(p.backgroundTrack, p.backgroundPosition, true, false)
+		p.Output().ShowBackground(p.backgroundTrack.Title(), p.backgroundPosition, true, false)
 		p.Output().Display("Background resumed")
 	}
 	return nil
@@ -288,7 +288,7 @@ func (p *perfil) IsBackgroundPlaying() bool {
 	return p.backgroundIsActive && p.player.IsPlaying()
 }
 
-func (p *perfil) GetBackgroundTrack() string {
+func (p *perfil) GetBackgroundTrack() Track {
 	return p.backgroundTrack
 }
 
@@ -301,7 +301,7 @@ func (p *perfil) SetBackgroundPosition(position int) {
 }
 
 func (p *perfil) StartBackground() error {
-	if p.backgroundTrack == "" {
+	if p.backgroundTrack.Title() == "" {
 		return nil
 	}
 
@@ -309,13 +309,13 @@ func (p *perfil) StartBackground() error {
 	p.backgroundStartedAt = time.Now()
 
 	global, _ := p.cfg.GetProfile(p.Name())
-	err := p.player.PlayURLWithSeek(p.backgroundTrack, global.SampleRate, p.backgroundPosition)
+	err := p.player.PlayURLWithSeek(p.backgroundTrack.AudioURL(), global.SampleRate, p.backgroundPosition)
 	if err != nil {
 		p.backgroundIsActive = false
 		return err
 	}
 
-	p.Output().ShowBackground(p.backgroundTrack, p.backgroundPosition, true, false)
+	p.Output().ShowBackground(p.backgroundTrack.Title(), p.backgroundPosition, true, false)
 	p.Output().Display("Background music resumed")
 	return nil
 }

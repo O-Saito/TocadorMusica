@@ -20,21 +20,21 @@ func (c *BackgroundCommand) Execute(p domain.PerfilInterface, args []string) err
 			p.ClearBackground()
 			return nil
 		case "status":
-			if p.GetBackgroundTrack() == "" {
+			if p.GetBackgroundTrack().Title() == "" {
 				p.Output().Display("No background music set")
 			} else if p.IsBackgroundPlaying() {
-				p.Output().Display(fmt.Sprintf("Background: %s (playing)", p.GetBackgroundTrack()))
+				p.Output().Display(fmt.Sprintf("Background: %s (playing)", p.GetBackgroundTrack().Title()))
 			} else if p.IsBackgroundPaused() {
-				p.Output().Display(fmt.Sprintf("Background: %s (paused at %ds)", p.GetBackgroundTrack(), p.GetBackgroundPosition()))
+				p.Output().Display(fmt.Sprintf("Background: %s (paused at %ds)", p.GetBackgroundTrack().Title(), p.GetBackgroundPosition()))
 			} else {
-				p.Output().Display(fmt.Sprintf("Background: %s (stopped)", p.GetBackgroundTrack()))
+				p.Output().Display(fmt.Sprintf("Background: %s (stopped)", p.GetBackgroundTrack().Title()))
 			}
 			return nil
 		}
 	}
 
-	if p.GetBackgroundTrack() != "" {
-		p.Output().Display(fmt.Sprintf("Current background: %s", p.GetBackgroundTrack()))
+	if p.GetBackgroundTrack().Title() != "" {
+		p.Output().Display(fmt.Sprintf("Current background: %s", p.GetBackgroundTrack().Title()))
 	}
 
 	global, _ := p.Config().GetProfile(p.Name())

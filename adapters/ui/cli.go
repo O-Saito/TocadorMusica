@@ -78,12 +78,7 @@ type CLIinterface struct {
 	mu           sync.Mutex
 	closed       bool
 
-	perfil interface {
-		GetBackgroundTrack() string
-		GetBackgroundPosition() int
-		IsBackgroundPlaying() bool
-		IsBackgroundPaused() bool
-	}
+	perfil             any
 	profileName        string
 	queue              []string
 	nowPlaying         string
@@ -261,12 +256,7 @@ func (c *CLIinterface) ShowVolumeAndAutoplay(volume int, autoplay bool) {
 	c.RenderBox()
 }
 
-func (c *CLIinterface) SetPerfil(perfil interface {
-	GetBackgroundTrack() string
-	GetBackgroundPosition() int
-	IsBackgroundPlaying() bool
-	IsBackgroundPaused() bool
-}) {
+func (c *CLIinterface) SetPerfil(perfil any) {
 	c.mu.Lock()
 	c.perfil = perfil
 	c.mu.Unlock()
