@@ -43,6 +43,15 @@ func (m *mockOutputHandler) ShowNowPlaying(track string) {}
 
 func (m *mockOutputHandler) ShowVolumeAndAutoplay(volume int, autoplay bool) {}
 
+func (m *mockOutputHandler) ShowBackground(track string, position int, isPlaying bool, isPaused bool) {
+}
+
+func (m *mockOutputHandler) DisplayOptionsPage(options []string, currentPage int, totalPages int, showYouTubeOption bool) <-chan int {
+	ch := make(chan int)
+	go func() { ch <- 0 }()
+	return ch
+}
+
 func (m *mockOutputHandler) Refresh() {}
 
 func TestOutputHandler_Display(t *testing.T) {

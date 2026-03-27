@@ -84,21 +84,24 @@ type CLIWebSocket struct {
 	mu           sync.Mutex
 	closed       bool
 
-	perfil         domain.PerfilInterface
-	profileName    string
-	queue          []string
-	nowPlaying     string
-	duration       string
-	isSearch       bool
-	lastMessage    string
-	isError        bool
-	isPaused       bool
-	volume         int
-	autoplay       bool
-	socketStatus   int
-	extraCommands  []string
-	wsClient       *wsClient
-	defaultAddress string
+	perfil             domain.PerfilInterface
+	profileName        string
+	queue              []string
+	nowPlaying         string
+	duration           string
+	isSearch           bool
+	lastMessage        string
+	isError            bool
+	isPaused           bool
+	volume             int
+	autoplay           bool
+	socketStatus       int
+	extraCommands      []string
+	wsClient           *wsClient
+	defaultAddress     string
+	backgroundTrack    string
+	backgroundPosition int
+	backgroundStatus   string
 }
 
 const (
@@ -224,19 +227,46 @@ func (c *CLIWebSocket) RequestInput(prompt string) <-chan string {
 }
 
 func (c *CLIWebSocket) DisplayOptions(options []string) <-chan int {
+	return c.DisplayOptionsPage(options, 0, 0, false)
+}
+
+func (c *CLIWebSocket) DisplayOptionsPage(options []string, currentPage int, totalPages int, showYouTubeOption bool) <-chan int {
 	c.waitingType = "option"
 	ch := make(chan int)
 
 	go func() {
 		idxStr := <-c.responseChan
+		idxStr = strings.TrimSpace(idxStr)
+
+		if idxStr == "n" || idxStr == "N" {
+			ch <- -1
+			return
+		}
+		if idxStr == "p" || idxStr == "P" {
+			ch <- -2
+			return
+		}
+		if idxStr == "yt" || idxStr == "YT" || idxStr == "ytube" || idxStr == "YTUBE" {
+			ch <- -3
+			return
+		}
+		if idxStr == "q" || idxStr == "Q" || idxStr == "quit" || idxStr == "QUIT" {
+			ch <- -4
+			return
+		}
+
 		var idx int
 		fmt.Sscanf(idxStr, "%d", &idx)
-		ch <- idx - 1
+		if showYouTubeOption && idx == 0 {
+			ch <- -3
+		} else {
+			ch <- idx - 1
+		}
 	}()
 
 	c.isSearch = true
 	c.clearScreen()
-	c.renderSearch(options)
+	c.renderSearchPage(options, currentPage, totalPages, showYouTubeOption)
 
 	return ch
 }
@@ -284,6 +314,29 @@ func (c *CLIWebSocket) ShowVolumeAndAutoplay(volume int, autoplay bool) {
 	c.mu.Lock()
 	c.volume = volume
 	c.autoplay = autoplay
+	c.mu.Unlock()
+	c.RenderBox()
+}
+
+func (c *CLIWebSocket) formatTime(seconds int) string {
+	mins := seconds / 60
+	secs := seconds % 60
+	return fmt.Sprintf("%d:%02d", mins, secs)
+}
+
+func (c *CLIWebSocket) ShowBackground(track string, position int, isPlaying bool, isPaused bool) {
+	c.mu.Lock()
+	c.backgroundTrack = track
+	c.backgroundPosition = position
+	if track == "" {
+		c.backgroundStatus = ""
+	} else if isPlaying {
+		c.backgroundStatus = "playing"
+	} else if isPaused {
+		c.backgroundStatus = "paused"
+	} else {
+		c.backgroundStatus = "stopped"
+	}
 	c.mu.Unlock()
 	c.RenderBox()
 }
@@ -517,6 +570,22 @@ func (c *CLIWebSocket) renderBox() {
 		Foreground(lipgloss.Color("75"))
 	statusRow := statusStyle.Render(statusContent)
 
+	var backgroundContent string
+	if c.backgroundTrack != "" {
+		posStr := c.formatTime(c.backgroundPosition)
+		var bgText string
+		if c.backgroundStatus == "playing" {
+			bgText = fmt.Sprintf("Background: %s (%s)", c.backgroundTrack, posStr)
+		} else if c.backgroundStatus == "paused" {
+			bgText = fmt.Sprintf("Background: %s (paused at %s)", c.backgroundTrack, posStr)
+		} else {
+			bgText = fmt.Sprintf("Background: %s (stopped at %s)", c.backgroundTrack, posStr)
+		}
+		backgroundContent = statusStyle.Width(BoxWidth - 2).Render(bgText)
+	} else {
+		backgroundContent = statusStyle.Width(BoxWidth - 2).Render("Background: None")
+	}
+
 	var nowPlayingContent string
 	if c.nowPlaying != "" {
 		if c.isPaused {
@@ -530,6 +599,8 @@ func (c *CLIWebSocket) renderBox() {
 			nowPlayingContent = nowPlayingStyle.Width(BoxWidth - 2).Render(
 				title + strings.Repeat(" ", padding) + c.duration)
 		}
+	} else {
+		nowPlayingContent = nowPlayingStyle.Width(BoxWidth - 2).Render("Now Playing: None")
 	}
 
 	queueCmdContent := c.buildQueueCommandsContent()
@@ -549,10 +620,10 @@ func (c *CLIWebSocket) renderBox() {
 	content.WriteString(divider + "\n")
 	content.WriteString(statusRow + "\n")
 	content.WriteString(divider + "\n")
-	if nowPlayingContent != "" {
-		content.WriteString(nowPlayingContent + "\n")
-		content.WriteString(divider + "\n")
-	}
+	content.WriteString(backgroundContent + "\n")
+	content.WriteString(divider + "\n")
+	content.WriteString(nowPlayingContent + "\n")
+	content.WriteString(divider + "\n")
 	content.WriteString(queueCmdContent)
 	if messageContent != "" {
 		content.WriteString(divider + "\n")
@@ -629,6 +700,10 @@ func (c *CLIWebSocket) buildQueueCommandsContent() string {
 }
 
 func (c *CLIWebSocket) renderSearch(options []string) {
+	c.renderSearchPage(options, 0, 0, false)
+}
+
+func (c *CLIWebSocket) renderSearchPage(options []string, currentPage int, totalPages int, showYouTubeOption bool) {
 	centeredTitle := "SEARCH RESULTS"
 	divider := strings.Repeat("─", BoxWidth-2)
 
@@ -636,12 +711,37 @@ func (c *CLIWebSocket) renderSearch(options []string) {
 	content.WriteString(centeredTitle + "\n")
 	content.WriteString(divider + "\n")
 
-	for i, opt := range options {
-		truncated := c.truncateTitle(opt, BoxWidth-10)
-		content.WriteString(fmt.Sprintf(" %2d: %s\n", i+1, truncated))
+	if totalPages > 0 {
+		content.WriteString(fmt.Sprintf("Page %d/%d\n", currentPage+1, totalPages))
+		content.WriteString(divider + "\n")
 	}
 
-	content.WriteString(divider)
+	if showYouTubeOption {
+		content.WriteString("  0: Search on YouTube\n")
+	}
+
+	for i, opt := range options {
+		offset := 0
+		if showYouTubeOption {
+			offset = 1
+		}
+		truncated := c.truncateTitle(opt, BoxWidth-10)
+		content.WriteString(fmt.Sprintf(" %2d: %s\n", i+1+offset, truncated))
+	}
+
+	content.WriteString(divider + "\n")
+
+	if totalPages > 0 {
+		if showYouTubeOption {
+			content.WriteString("(0=yt, n=next, p=prev, q=quit)")
+		} else {
+			content.WriteString("(n=next, p=prev, q=quit)")
+		}
+	} else {
+		if showYouTubeOption {
+			content.WriteString("(0=yt)")
+		}
+	}
 
 	c.clearScreen()
 	fmt.Println(searchBoxStyle.Render(content.String()))

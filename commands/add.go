@@ -129,13 +129,16 @@ func searchAndAdd(p domain.PerfilInterface, query string, recursive bool) error 
 	}
 
 	if len(fileResults) > 0 {
-		return selectAndAddFile(p, fileResults)
+		return selectAndAddFile(p, fileResults, query)
 	}
 
 	return searchAndAddYouTube(p, query)
 }
 
-func selectAndAddFile(p domain.PerfilInterface, tracks []domain.Track) error {
+func selectAndAddFile(p domain.PerfilInterface, tracks []domain.Track, query string) error {
+	_, profile := p.Config().GetProfile(p.Name())
+	pageSize := profile.SearchResults
+
 	if len(tracks) == 1 {
 		track := tracks[0]
 		err := p.Queue().Enqueue(track)
@@ -153,45 +156,69 @@ func selectAndAddFile(p domain.PerfilInterface, tracks []domain.Track) error {
 		return nil
 	}
 
-	options := []string{"Search on YouTube"}
-	for _, t := range tracks {
-		options = append(options, t.Title())
-	}
+	currentPage := 0
+	totalPages := (len(tracks) + pageSize - 1) / pageSize
 
-	p.Output().Display("Select an option:")
-	ch := p.Output().DisplayOptions(options)
-	idx := <-ch
+	for {
+		start := currentPage * pageSize
+		end := start + pageSize
+		if end > len(tracks) {
+			end = len(tracks)
+		}
 
-	if idx < 0 || idx > len(tracks) {
-		p.Output().Display("Invalid selection")
-		return nil
-	}
+		pageTracks := tracks[start:end]
+		titles := make([]string, len(pageTracks))
+		for i, t := range pageTracks {
+			titles[i] = t.Title()
+		}
 
-	if idx == 0 {
-		p.Output().Display("Enter search query:")
-		ch := p.Output().RequestInput("Search:")
-		query := <-ch
-		if query == "" {
-			p.Output().Display("Empty search query")
+		p.Output().Display("Select a file:")
+		ch := p.Output().DisplayOptionsPage(titles, currentPage, totalPages, true)
+		idx := <-ch
+
+		if idx == -3 {
+			return searchAndAddYouTube(p, query)
+		}
+
+		if idx == -4 {
+			p.Output().Display("Cancelled")
 			return nil
 		}
-		return searchAndAddYouTube(p, query)
+
+		if idx == -1 {
+			if currentPage < totalPages-1 {
+				currentPage++
+			}
+			continue
+		}
+
+		if idx == -2 {
+			if currentPage > 0 {
+				currentPage--
+			}
+			continue
+		}
+
+		if idx < 0 || idx >= len(pageTracks) {
+			p.Output().Display("Invalid selection")
+			continue
+		}
+
+		track := pageTracks[idx]
+		err := p.Queue().Enqueue(track)
+		if err != nil {
+			return fmt.Errorf("failed to add to queue: %w", err)
+		}
+
+		p.Output().Display("Added: " + track.Title())
+		p.Output().ShowQueue(p.GetQueueItems())
+
+		if p.Config().GetAutoPlay(p.Name()) {
+			p.ExecuteCommand("play", nil)
+		}
+
+		return nil
 	}
-
-	track := tracks[idx-1]
-	err := p.Queue().Enqueue(track)
-	if err != nil {
-		return fmt.Errorf("failed to add to queue: %w", err)
-	}
-
-	p.Output().Display("Added: " + track.Title())
-	p.Output().ShowQueue(p.GetQueueItems())
-
-	if p.Config().GetAutoPlay(p.Name()) {
-		p.ExecuteCommand("play", nil)
-	}
-
-	return nil
 }
 
 func searchAndAddYouTube(p domain.PerfilInterface, query string) error {
@@ -208,36 +235,68 @@ func searchAndAddYouTube(p domain.PerfilInterface, query string) error {
 		return nil
 	}
 
-	titles := make([]string, len(results))
-	for i, r := range results {
-		titles[i] = fmt.Sprintf("%s - %s", r.Title, r.Duration)
-	}
+	pageSize := profile.SearchResults
+	currentPage := 0
+	totalPages := (len(results) + pageSize - 1) / pageSize
 
-	p.Output().Display("Select a track:")
-	ch := p.Output().DisplayOptions(titles)
-	idx := <-ch
+	for {
+		start := currentPage * pageSize
+		end := start + pageSize
+		if end > len(results) {
+			end = len(results)
+		}
 
-	if idx < 0 || idx >= len(results) {
-		p.Output().Display("Invalid selection")
+		pageResults := results[start:end]
+		titles := make([]string, len(pageResults))
+		for i, r := range pageResults {
+			titles[i] = fmt.Sprintf("%s - %s", r.Title, r.Duration)
+		}
+
+		p.Output().Display("Select a track:")
+		ch := p.Output().DisplayOptionsPage(titles, currentPage, totalPages, false)
+		idx := <-ch
+
+		if idx == -4 {
+			p.Output().Display("Cancelled")
+			return nil
+		}
+
+		if idx == -1 {
+			if currentPage < totalPages-1 {
+				currentPage++
+			}
+			continue
+		}
+
+		if idx == -2 {
+			if currentPage > 0 {
+				currentPage--
+			}
+			continue
+		}
+
+		if idx < 0 || idx >= len(pageResults) {
+			p.Output().Display("Invalid selection")
+			continue
+		}
+
+		result := pageResults[idx]
+		track := domain.NewTrackFromYouTube(result.URL, result.Title, "", "")
+
+		err = p.Queue().Enqueue(track)
+		if err != nil {
+			return fmt.Errorf("failed to add to queue: %w", err)
+		}
+
+		p.Output().Display("Added: " + track.Title())
+		p.Output().ShowQueue(p.GetQueueItems())
+
+		if p.Config().GetAutoPlay(p.Name()) {
+			p.ExecuteCommand("play", nil)
+		}
+
 		return nil
 	}
-
-	result := results[idx]
-	track := domain.NewTrackFromYouTube(result.URL, result.Title, "", "")
-
-	err = p.Queue().Enqueue(track)
-	if err != nil {
-		return fmt.Errorf("failed to add to queue: %w", err)
-	}
-
-	p.Output().Display("Added: " + track.Title())
-	p.Output().ShowQueue(p.GetQueueItems())
-
-	if p.Config().GetAutoPlay(p.Name()) {
-		p.ExecuteCommand("play", nil)
-	}
-
-	return nil
 }
 
 var _ Command = (*AddCommand)(nil)

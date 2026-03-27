@@ -286,6 +286,10 @@ func main() {
 		cliWS.SetPerfil(perfil)
 	}
 
+	if cli, ok := input.(*cliui.CLIinterface); ok {
+		cli.SetPerfil(perfil)
+	}
+
 	volume := int(player.Volume() * 100)
 	perfil.NotifyVolumeChanged(volume)
 

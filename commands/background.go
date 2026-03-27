@@ -58,38 +58,71 @@ func (c *BackgroundCommand) Execute(p domain.PerfilInterface, args []string) err
 }
 
 func selectAndSetBackground(p domain.PerfilInterface, tracks []domain.Track) error {
-	options := []string{"Search on YouTube"}
-	for _, t := range tracks {
-		options = append(options, t.Title())
-	}
+	_, profile := p.Config().GetProfile(p.Name())
+	pageSize := profile.SearchResults
+	currentPage := 0
+	totalPages := (len(tracks) + pageSize - 1) / pageSize
 
-	p.Output().Display("Select background music:")
-	ch := p.Output().DisplayOptions(options)
-	idx := <-ch
+	for {
+		start := currentPage * pageSize
+		end := start + pageSize
+		if end > len(tracks) {
+			end = len(tracks)
+		}
 
-	if idx < 0 || idx > len(tracks) {
-		p.Output().Display("Invalid selection")
-		return nil
-	}
+		pageTracks := tracks[start:end]
+		titles := make([]string, len(pageTracks))
+		for i, t := range pageTracks {
+			titles[i] = t.Title()
+		}
 
-	if idx == 0 {
-		p.Output().Display("Enter search query:")
-		ch := p.Output().RequestInput("Search:")
-		query := <-ch
-		if query == "" {
-			p.Output().Display("Empty search query")
+		p.Output().Display("Select background music:")
+		ch := p.Output().DisplayOptionsPage(titles, currentPage, totalPages, false)
+		idx := <-ch
+
+		if idx == -3 {
+			p.Output().Display("Enter search query:")
+			ch := p.Output().RequestInput("Search:")
+			query := <-ch
+			if query == "" {
+				p.Output().Display("Empty search query")
+				continue
+			}
+			return searchAndSetBackgroundYouTube(p, query)
+		}
+
+		if idx == -4 {
+			p.Output().Display("Cancelled")
 			return nil
 		}
-		return searchAndSetBackgroundYouTube(p, query)
-	}
 
-	track := tracks[idx-1]
-	err := p.SetBackground(track.AudioURL())
-	if err != nil {
-		return fmt.Errorf("failed to set background: %w", err)
-	}
+		if idx == -1 {
+			if currentPage < totalPages-1 {
+				currentPage++
+			}
+			continue
+		}
 
-	return nil
+		if idx == -2 {
+			if currentPage > 0 {
+				currentPage--
+			}
+			continue
+		}
+
+		if idx < 0 || idx >= len(pageTracks) {
+			p.Output().Display("Invalid selection")
+			continue
+		}
+
+		track := pageTracks[idx]
+		err := p.SetBackground(track.AudioURL())
+		if err != nil {
+			return fmt.Errorf("failed to set background: %w", err)
+		}
+
+		return nil
+	}
 }
 
 func searchAndSetBackgroundYouTube(p domain.PerfilInterface, query string) error {
@@ -106,29 +139,61 @@ func searchAndSetBackgroundYouTube(p domain.PerfilInterface, query string) error
 		return nil
 	}
 
-	titles := make([]string, len(results))
-	for i, r := range results {
-		titles[i] = fmt.Sprintf("%s - %s", r.Title, r.Duration)
-	}
+	pageSize := profile.SearchResults
+	currentPage := 0
+	totalPages := (len(results) + pageSize - 1) / pageSize
 
-	p.Output().Display("Select a track:")
-	ch := p.Output().DisplayOptions(titles)
-	idx := <-ch
+	for {
+		start := currentPage * pageSize
+		end := start + pageSize
+		if end > len(results) {
+			end = len(results)
+		}
 
-	if idx < 0 || idx >= len(results) {
-		p.Output().Display("Invalid selection")
+		pageResults := results[start:end]
+		titles := make([]string, len(pageResults))
+		for i, r := range pageResults {
+			titles[i] = fmt.Sprintf("%s - %s", r.Title, r.Duration)
+		}
+
+		p.Output().Display("Select a track:")
+		ch := p.Output().DisplayOptionsPage(titles, currentPage, totalPages, false)
+		idx := <-ch
+
+		if idx == -4 {
+			p.Output().Display("Cancelled")
+			return nil
+		}
+
+		if idx == -1 {
+			if currentPage < totalPages-1 {
+				currentPage++
+			}
+			continue
+		}
+
+		if idx == -2 {
+			if currentPage > 0 {
+				currentPage--
+			}
+			continue
+		}
+
+		if idx < 0 || idx >= len(pageResults) {
+			p.Output().Display("Invalid selection")
+			continue
+		}
+
+		result := pageResults[idx]
+		track := domain.NewTrackFromYouTube(result.URL, result.Title, "", "")
+
+		err = p.SetBackground(track.AudioURL())
+		if err != nil {
+			return fmt.Errorf("failed to set background: %w", err)
+		}
+
 		return nil
 	}
-
-	result := results[idx]
-	track := domain.NewTrackFromYouTube(result.URL, result.Title, "", "")
-
-	err = p.SetBackground(track.AudioURL())
-	if err != nil {
-		return fmt.Errorf("failed to set background: %w", err)
-	}
-
-	return nil
 }
 
 var _ Command = (*BackgroundCommand)(nil)

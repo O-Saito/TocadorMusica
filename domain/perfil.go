@@ -224,6 +224,7 @@ func (p *perfil) SetBackground(trackPath string) error {
 		return err
 	}
 
+	p.Output().ShowBackground(trackPath, 0, true, false)
 	p.Output().Display("Background music set: " + trackPath)
 	return nil
 }
@@ -232,8 +233,11 @@ func (p *perfil) StopBackground() {
 	if p.backgroundIsActive && p.player.IsPlaying() {
 		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
 	}
+	track := p.backgroundTrack
+	pos := p.backgroundPosition
 	p.player.Stop()
 	p.backgroundIsActive = false
+	p.Output().ShowBackground(track, pos, false, false)
 }
 
 func (p *perfil) ClearBackground() {
@@ -242,14 +246,18 @@ func (p *perfil) ClearBackground() {
 	p.backgroundPaused = false
 	p.backgroundTrack = ""
 	p.backgroundPosition = 0
+	p.Output().ShowBackground("", 0, false, false)
 	p.Output().Display("Background music cleared")
 }
 
 func (p *perfil) PauseBackground() {
 	if p.backgroundIsActive && p.player.IsPlaying() {
 		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
+		track := p.backgroundTrack
+		pos := p.backgroundPosition
 		p.player.Pause()
 		p.backgroundPaused = true
+		p.Output().ShowBackground(track, pos, false, true)
 		p.Output().Display("Background paused")
 	}
 }
@@ -266,6 +274,7 @@ func (p *perfil) ResumeBackground() error {
 			return err
 		}
 
+		p.Output().ShowBackground(p.backgroundTrack, p.backgroundPosition, true, false)
 		p.Output().Display("Background resumed")
 	}
 	return nil
@@ -306,6 +315,7 @@ func (p *perfil) StartBackground() error {
 		return err
 	}
 
+	p.Output().ShowBackground(p.backgroundTrack, p.backgroundPosition, true, false)
 	p.Output().Display("Background music resumed")
 	return nil
 }

@@ -91,6 +91,15 @@ func (m *mockOutputHandlerPerfil) ShowNowPlaying(track string) {}
 
 func (m *mockOutputHandlerPerfil) ShowVolumeAndAutoplay(volume int, autoplay bool) {}
 
+func (m *mockOutputHandlerPerfil) ShowBackground(track string, position int, isPlaying bool, isPaused bool) {
+}
+
+func (m *mockOutputHandlerPerfil) DisplayOptionsPage(options []string, currentPage int, totalPages int, showYouTubeOption bool) <-chan int {
+	ch := make(chan int)
+	go func() { ch <- 0 }()
+	return ch
+}
+
 func (m *mockOutputHandlerPerfil) Refresh() {}
 
 type mockYouTubeService struct{}

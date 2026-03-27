@@ -27,34 +27,67 @@ func (c *ListCommand) Execute(p domain.PerfilInterface, args []string) error {
 		return nil
 	}
 
-	titles := make([]string, len(tracks))
-	for i, t := range tracks {
-		titles[i] = t.Title()
-	}
+	_, profile := p.Config().GetProfile(p.Name())
+	pageSize := profile.SearchResults
+	currentPage := 0
+	totalPages := (len(tracks) + pageSize - 1) / pageSize
 
-	p.Output().Display("Select a file to add:")
-	ch := p.Output().DisplayOptions(titles)
-	idx := <-ch
+	for {
+		start := currentPage * pageSize
+		end := start + pageSize
+		if end > len(tracks) {
+			end = len(tracks)
+		}
 
-	if idx < 0 || idx >= len(tracks) {
-		p.Output().Display("Invalid selection")
+		pageTracks := tracks[start:end]
+		titles := make([]string, len(pageTracks))
+		for i, t := range pageTracks {
+			titles[i] = t.Title()
+		}
+
+		p.Output().Display("Select a file to add:")
+		ch := p.Output().DisplayOptionsPage(titles, currentPage, totalPages, false)
+		idx := <-ch
+
+		if idx == -4 {
+			p.Output().Display("Cancelled")
+			return nil
+		}
+
+		if idx == -1 {
+			if currentPage < totalPages-1 {
+				currentPage++
+			}
+			continue
+		}
+
+		if idx == -2 {
+			if currentPage > 0 {
+				currentPage--
+			}
+			continue
+		}
+
+		if idx < 0 || idx >= len(pageTracks) {
+			p.Output().Display("Invalid selection")
+			continue
+		}
+
+		track := pageTracks[idx]
+		err = p.Queue().Enqueue(track)
+		if err != nil {
+			return err
+		}
+
+		p.Output().Display("Added: " + track.Title())
+		p.Output().ShowQueue(p.GetQueueItems())
+
+		if p.Config().GetAutoPlay(p.Name()) {
+			p.ExecuteCommand("play", nil)
+		}
+
 		return nil
 	}
-
-	track := tracks[idx]
-	err = p.Queue().Enqueue(track)
-	if err != nil {
-		return err
-	}
-
-	p.Output().Display("Added: " + track.Title())
-	p.Output().ShowQueue(p.GetQueueItems())
-
-	if p.Config().GetAutoPlay(p.Name()) {
-		p.ExecuteCommand("play", nil)
-	}
-
-	return nil
 }
 
 var _ Command = (*ListCommand)(nil)
