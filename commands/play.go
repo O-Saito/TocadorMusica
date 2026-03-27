@@ -16,6 +16,10 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 		p.StopBackground()
 	}
 
+	if p.Player().IsPlaying() {
+		return nil
+	}
+
 	track, err := p.Queue().Peek()
 	if err != nil {
 		p.Output().Display("Queue is empty")
@@ -39,6 +43,14 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 		track.SetAudioURL(audioURL)
 	}
 
+	p.Output().Display("Streaming: " + track.Title())
+
+	global, _ := p.Config().GetProfile(p.Name())
+	err = p.Player().PlayURL(audioURL, global.SampleRate)
+	if err != nil {
+		return fmt.Errorf("failed to play: %w", err)
+	}
+
 	autoPlay := p.Config().GetAutoPlay(p.Name())
 
 	if autoPlay {
@@ -57,15 +69,6 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 		})
 	} else {
 		p.Player().SetOnFinishedCallback(nil)
-	}
-
-	p.Output().Display("Streaming: " + track.Title())
-
-	global, _ := p.Config().GetProfile(p.Name())
-	err = p.Player().PlayURL(audioURL, global.SampleRate)
-	if err != nil {
-		p.Player().SetOnFinishedCallback(nil)
-		return fmt.Errorf("failed to play: %w", err)
 	}
 
 	p.Output().Display("Playing: " + track.Title())

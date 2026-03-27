@@ -466,30 +466,22 @@ func (c *CLIinterface) renderSearchPage(options []string, currentPage int, total
 		content.WriteString(divider + "\n")
 	}
 
-	if showYouTubeOption {
-		content.WriteString("  0: Search on YouTube\n")
-	}
-
 	for i, opt := range options {
-		offset := 0
-		if showYouTubeOption {
-			offset = 1
-		}
 		truncated := c.truncateTitle(opt, BoxWidth-10)
-		content.WriteString(fmt.Sprintf(" %2d: %s\n", i+1+offset, truncated))
+		content.WriteString(fmt.Sprintf(" %2d: %s\n", i+1, truncated))
 	}
 
 	content.WriteString(divider + "\n")
 
 	if totalPages > 0 {
 		if showYouTubeOption {
-			content.WriteString("(0=yt, n=next, p=prev, q=quit)")
+			content.WriteString("(yt=YouTube, n=next, p=prev, q=quit)")
 		} else {
 			content.WriteString("(n=next, p=prev, q=quit)")
 		}
 	} else {
 		if showYouTubeOption {
-			content.WriteString("(0=yt)")
+			content.WriteString("(yt=YouTube)")
 		}
 	}
 
