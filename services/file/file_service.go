@@ -78,12 +78,24 @@ func (s *FileService) Search(folders []string, query string, recursive bool) ([]
 		files := s.collectFiles(folder, recursive)
 
 		for _, path := range files {
-			name := strings.ToLower(filepath.Base(path))
-			if !strings.Contains(name, query) {
+			relPath := ""
+			if recursive {
+				relPath = strings.TrimPrefix(path, folder)
+				relPath = strings.TrimPrefix(relPath, string(filepath.Separator))
+				relPath = strings.TrimSuffix(relPath, filepath.Base(path))
+				relPath = strings.TrimSuffix(relPath, string(filepath.Separator))
+			}
+
+			searchName := strings.ToLower(relPath)
+			if searchName == "" {
+				searchName = strings.ToLower(filepath.Base(path))
+			}
+
+			if !strings.Contains(searchName, query) {
 				continue
 			}
 
-			track := domain.NewTrackFromFile(path)
+			track := domain.NewTrackFromFileWithFolder(path, relPath)
 			results = append(results, track)
 		}
 	}
@@ -106,7 +118,15 @@ func (s *FileService) ListAll(folders []string, recursive bool) ([]domain.Track,
 		files := s.collectFiles(folder, recursive)
 
 		for _, path := range files {
-			track := domain.NewTrackFromFile(path)
+			relPath := ""
+			if recursive {
+				relPath = strings.TrimPrefix(path, folder)
+				relPath = strings.TrimPrefix(relPath, string(filepath.Separator))
+				relPath = strings.TrimSuffix(relPath, filepath.Base(path))
+				relPath = strings.TrimSuffix(relPath, string(filepath.Separator))
+			}
+
+			track := domain.NewTrackFromFileWithFolder(path, relPath)
 			results = append(results, track)
 		}
 	}

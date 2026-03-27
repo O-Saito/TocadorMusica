@@ -54,7 +54,15 @@ func NewTrackFromYouTube(url, title, description, audioURL string) Track {
 }
 
 func NewTrackFromFile(path string) Track {
-	return NewTrack(path, filepath.Base(path), "", path, TrackTypeFile)
+	return NewTrackFromFileWithFolder(path, "")
+}
+
+func NewTrackFromFileWithFolder(path, relativeFolder string) Track {
+	title := filepath.Base(path)
+	if relativeFolder != "" {
+		title = relativeFolder + "/" + title
+	}
+	return NewTrack(path, title, "", path, TrackTypeFile)
 }
 
 func (t *Track) IsValid() error {
