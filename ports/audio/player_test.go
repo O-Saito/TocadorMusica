@@ -24,6 +24,11 @@ func (m *mockPlayer) PlayURL(url string, sampleRate int) error {
 	return nil
 }
 
+func (m *mockPlayer) PlayURLWithSeek(url string, sampleRate int, seekSeconds int) error {
+	m.playing = true
+	return nil
+}
+
 func (m *mockPlayer) Pause() {
 	m.playing = false
 }

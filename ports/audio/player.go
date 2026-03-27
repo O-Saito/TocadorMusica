@@ -7,6 +7,7 @@ import (
 type Player interface {
 	Play(reader io.Reader) error
 	PlayURL(url string, sampleRate int) error
+	PlayURLWithSeek(url string, sampleRate int, seekSeconds int) error
 	Pause()
 	Resume()
 	Stop()

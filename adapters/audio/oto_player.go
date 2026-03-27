@@ -84,6 +84,10 @@ func (p *OtoPlayer) Play(reader io.Reader) error {
 }
 
 func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
+	return p.PlayURLWithSeek(url, sampleRate, 0)
+}
+
+func (p *OtoPlayer) PlayURLWithSeek(url string, sampleRate int, seekSeconds int) error {
 	p.Stop()
 
 	atomic.StoreInt32(&p.stopped, 0)
@@ -101,7 +105,11 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 	p.ffmpegMu.Lock()
 	var cmd *exec.Cmd
 	if isHTTP {
-		cmd = exec.Command(p.ffmpegPath,
+		cmdArgs := []string{}
+		if seekSeconds > 0 {
+			cmdArgs = append(cmdArgs, "-ss", strconv.Itoa(seekSeconds))
+		}
+		cmdArgs = append(cmdArgs,
 			"-reconnect", "1",
 			"-reconnect_streamed", "1",
 			"-reconnect_delay_max", "5",
@@ -112,14 +120,20 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 			"-ar", strconv.Itoa(sampleRate),
 			"-ac", "2",
 			"pipe:1")
+		cmd = exec.Command(p.ffmpegPath, cmdArgs...)
 	} else {
-		cmd = exec.Command(p.ffmpegPath,
+		cmdArgs := []string{}
+		if seekSeconds > 0 {
+			cmdArgs = append(cmdArgs, "-ss", strconv.Itoa(seekSeconds))
+		}
+		cmdArgs = append(cmdArgs,
 			"-loglevel", "error",
 			"-i", processedURL,
 			"-f", "s16le",
 			"-ar", strconv.Itoa(sampleRate),
 			"-ac", "2",
 			"pipe:1")
+		cmd = exec.Command(p.ffmpegPath, cmdArgs...)
 	}
 	p.ffCmd = cmd
 	p.ffCmd.Stdout = ffmpegWriter

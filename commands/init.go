@@ -11,4 +11,5 @@ func init() {
 	Register(&ResumeCommand{})
 	Register(&AutoplayCommand{})
 	Register(&ListCommand{})
+	Register(&BackgroundCommand{})
 }

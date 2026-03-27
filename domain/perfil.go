@@ -3,6 +3,7 @@ package domain
 import (
 	"context"
 	"strings"
+	"time"
 
 	"tocadormusica/config"
 	"tocadormusica/logger"
@@ -27,6 +28,13 @@ type PerfilInterface interface {
 	NotifyVolumeChanged(volume int)
 	Start(ctx context.Context) error
 	Wait()
+	SetBackground(trackPath string) error
+	StopBackground()
+	StartBackground() error
+	IsBackgroundPlaying() bool
+	GetBackgroundTrack() string
+	GetBackgroundPosition() int
+	SetBackgroundPosition(position int)
 }
 
 type CommandExecutor interface {
@@ -34,19 +42,23 @@ type CommandExecutor interface {
 }
 
 type perfil struct {
-	name        string
-	queue       Queue
-	player      audio.Player
-	input       ui.InputHandler
-	output      ui.OutputHandler
-	ytSvc       YouTubeService
-	fileSvc     FileService
-	cfg         config.Config
-	log         logger.Logger
-	cmdExecutor CommandExecutor
-	ctx         context.Context
-	cancel      context.CancelFunc
-	done        chan struct{}
+	name                string
+	queue               Queue
+	player              audio.Player
+	input               ui.InputHandler
+	output              ui.OutputHandler
+	ytSvc               YouTubeService
+	fileSvc             FileService
+	cfg                 config.Config
+	log                 logger.Logger
+	cmdExecutor         CommandExecutor
+	ctx                 context.Context
+	cancel              context.CancelFunc
+	done                chan struct{}
+	backgroundTrack     string
+	backgroundPosition  int
+	backgroundIsActive  bool
+	backgroundStartedAt time.Time
 }
 
 func NewPerfil(
@@ -191,4 +203,65 @@ func (p *perfil) handleInput(input string) {
 	args := parts[1:]
 
 	p.ExecuteCommand(cmd, args)
+}
+
+func (p *perfil) SetBackground(trackPath string) error {
+	p.backgroundTrack = trackPath
+	p.backgroundPosition = 0
+	p.backgroundIsActive = true
+	p.backgroundStartedAt = time.Now()
+
+	global, _ := p.cfg.GetProfile(p.Name())
+	err := p.player.PlayURLWithSeek(trackPath, global.SampleRate, 0)
+	if err != nil {
+		p.backgroundIsActive = false
+		return err
+	}
+
+	p.Output().Display("Background music set: " + trackPath)
+	return nil
+}
+
+func (p *perfil) StopBackground() {
+	if p.backgroundIsActive {
+		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
+	}
+	p.player.Stop()
+	p.backgroundIsActive = false
+	p.Output().Display("Background music stopped")
+}
+
+func (p *perfil) IsBackgroundPlaying() bool {
+	return p.backgroundIsActive && p.player.IsPlaying()
+}
+
+func (p *perfil) GetBackgroundTrack() string {
+	return p.backgroundTrack
+}
+
+func (p *perfil) GetBackgroundPosition() int {
+	return p.backgroundPosition
+}
+
+func (p *perfil) SetBackgroundPosition(position int) {
+	p.backgroundPosition = position
+}
+
+func (p *perfil) StartBackground() error {
+	if p.backgroundTrack == "" {
+		return nil
+	}
+
+	p.backgroundIsActive = true
+	p.backgroundStartedAt = time.Now()
+
+	global, _ := p.cfg.GetProfile(p.Name())
+	err := p.player.PlayURLWithSeek(p.backgroundTrack, global.SampleRate, p.backgroundPosition)
+	if err != nil {
+		p.backgroundIsActive = false
+		return err
+	}
+
+	p.Output().Display("Background music resumed")
+	return nil
 }

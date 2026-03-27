@@ -12,11 +12,18 @@ func (c *PlayCommand) Name() string        { return "play" }
 func (c *PlayCommand) Description() string { return "Play the first track in queue" }
 
 func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
+	if p.IsBackgroundPlaying() {
+		p.StopBackground()
+	}
+
 	track, err := p.Queue().Peek()
 	if err != nil {
 		p.Output().Display("Queue is empty")
 		p.Player().Stop()
 		p.Output().ShowNowPlaying("")
+		if p.GetBackgroundTrack() != "" {
+			p.StartBackground()
+		}
 		return nil
 	}
 
@@ -39,6 +46,9 @@ func (c *PlayCommand) Execute(p domain.PerfilInterface, args []string) error {
 			if p.Config().GetAutoPlay(p.Name()) {
 				_, err := p.Queue().Dequeue()
 				if err != nil {
+					if p.GetBackgroundTrack() != "" {
+						p.StartBackground()
+					}
 					return
 				}
 				p.Output().ShowQueue(p.GetQueueItems())
