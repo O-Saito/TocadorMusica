@@ -86,9 +86,9 @@ func (s *FileService) Search(folders []string, query string, recursive bool) ([]
 				relPath = strings.TrimSuffix(relPath, string(filepath.Separator))
 			}
 
-			searchName := strings.ToLower(relPath)
-			if searchName == "" {
-				searchName = strings.ToLower(filepath.Base(path))
+			searchName := strings.ToLower(filepath.Base(path))
+			if relPath != "" {
+				searchName = strings.ToLower(relPath) + "/" + searchName
 			}
 
 			if !strings.Contains(searchName, query) {
