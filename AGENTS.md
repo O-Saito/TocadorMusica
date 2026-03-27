@@ -190,7 +190,7 @@ type Track struct {
 - The data of a audio should be 
 ```
   URL: File path
-  Title: File name
+  Title: Folders of relative recursive folder + File name
   Description: Empty
   AudioURL: File path
 ```
@@ -204,3 +204,6 @@ type Track struct {
 ## External Processes
 - Must enforce timeouts
 - Must not leak zombie processes
+
+## External packages should have auto installs
+Should ask if the user want a auto install of ffmpeg, yt-dlp and deno
