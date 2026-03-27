@@ -224,6 +224,13 @@ func (p *perfil) SetBackground(trackPath string) error {
 		return err
 	}
 
+	p.player.SetOnFinishedCallback(func() {
+		if p.backgroundIsActive {
+			p.backgroundPosition = 0
+			p.StartBackground()
+		}
+	})
+
 	p.Output().ShowBackground(p.backgroundTrack.Title(), 0, true, false)
 	p.Output().Display("Background music set: " + p.backgroundTrack.Title())
 	return nil
@@ -314,6 +321,13 @@ func (p *perfil) StartBackground() error {
 		p.backgroundIsActive = false
 		return err
 	}
+
+	p.player.SetOnFinishedCallback(func() {
+		if p.backgroundIsActive {
+			p.backgroundPosition = 0
+			p.StartBackground()
+		}
+	})
 
 	p.Output().ShowBackground(p.backgroundTrack.Title(), p.backgroundPosition, true, false)
 	p.Output().Display("Background music resumed")
