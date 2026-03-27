@@ -1,25 +1,15 @@
 package commands
 
 import (
-	"bufio"
 	"sort"
 
-	"tocadormusica/config"
-	"tocadormusica/models"
-	"tocadormusica/services"
+	"tocadormusica/domain"
 )
-
-type CommandContext struct {
-	Queue  *models.Queue
-	Player *services.AudioPlayer
-	Config *config.Config
-	Reader *bufio.Reader
-}
 
 type Command interface {
 	Name() string
 	Description() string
-	Execute(ctx *CommandContext, args []string) error
+	Execute(perfil domain.PerfilInterface, args []string) error
 }
 
 var registry = make(map[string]Command)
@@ -33,12 +23,12 @@ func Get(name string) Command {
 }
 
 func List() []Command {
-	commands := make([]Command, 0, len(registry))
+	cmds := make([]Command, 0, len(registry))
 	for _, cmd := range registry {
-		commands = append(commands, cmd)
+		cmds = append(cmds, cmd)
 	}
-	sort.Slice(commands, func(i, j int) bool {
-		return commands[i].Name() < commands[j].Name()
+	sort.Slice(cmds, func(i, j int) bool {
+		return cmds[i].Name() < cmds[j].Name()
 	})
-	return commands
+	return cmds
 }

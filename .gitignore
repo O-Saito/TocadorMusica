@@ -1,0 +1,5 @@
+/logs
+Session
+*.exe
+*.config
+.config

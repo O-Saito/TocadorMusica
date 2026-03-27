@@ -1,22 +1,21 @@
 package commands
 
-import "fmt"
+import (
+	"fmt"
+
+	"tocadormusica/domain"
+)
 
 type QueueCommand struct{}
 
 func (c *QueueCommand) Name() string        { return "queue" }
-func (c *QueueCommand) Description() string { return "Show queued tracks" }
+func (c *QueueCommand) Description() string { return "Show queue size" }
 
-func (c *QueueCommand) Execute(ctx *CommandContext, args []string) error {
-	list := ctx.Queue.List()
-	if len(list) == 0 {
-		fmt.Println("Queue is empty")
-		return nil
-	}
-
-	fmt.Println("=== Queue ===")
-	for i, t := range list {
-		fmt.Printf("%2d. %s [%s]\n", i+1, t.Title, t.DurationFormatted())
-	}
+func (c *QueueCommand) Execute(p domain.PerfilInterface, args []string) error {
+	size := p.Queue().Size()
+	p.Output().Display(fmt.Sprintf("Queue size: %d", size))
+	p.Output().ShowQueue(p.GetQueueItems())
 	return nil
 }
+
+var _ Command = (*QueueCommand)(nil)

@@ -2,11 +2,14 @@ package commands
 
 func init() {
 	Register(&AddCommand{})
-	Register(&VolumeCommand{})
-	Register(&SkipCommand{})
 	Register(&PauseCommand{})
-	Register(&ResumeCommand{})
-	Register(&StopCommand{})
+	Register(&PlayCommand{})
 	Register(&QueueCommand{})
-	Register(&QuitCommand{})
+	Register(&StopCommand{})
+	Register(&NextCommand{})
+	Register(&VolumeCommand{})
+	Register(&ResumeCommand{})
+	Register(&AutoplayCommand{})
+	Register(&ListCommand{})
+	Register(&BackgroundCommand{})
 }
