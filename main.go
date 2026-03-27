@@ -21,6 +21,7 @@ import (
 	"tocadormusica/logger"
 	"tocadormusica/ports/ui"
 	"tocadormusica/services/dependencies"
+	"tocadormusica/services/file"
 	"tocadormusica/services/yt-dlp"
 )
 
@@ -185,6 +186,10 @@ func checkDependencies() (string, string, string, error) {
 }
 
 func findConfigPath() string {
+	if _, err := os.Stat(".config"); err == nil {
+		return ".config"
+	}
+
 	execPath, err := os.Executable()
 	if err != nil {
 		return ".config"
@@ -235,6 +240,7 @@ func main() {
 	log.Info("application starting", "volume", profile.Volume, "max_queue", global.MaxQueueSize, "sample_rate", global.SampleRate)
 
 	ytService := ytdlp.NewWithBinaryPathAndLogger(ytDlpPath, log)
+	fileService := file.New()
 
 	queue := domain.NewQueue(global.MaxQueueSize)
 
@@ -267,6 +273,7 @@ func main() {
 		input,
 		output,
 		ytService,
+		fileService,
 		cfg,
 		log,
 		nil,

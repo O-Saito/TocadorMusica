@@ -23,7 +23,8 @@ func (c *AddCommand) Execute(p domain.PerfilInterface, args []string) error {
 		return addURL(p, arg)
 	}
 
-	return searchAndAdd(p, arg)
+	global, _ := p.Config().GetProfile(p.Name())
+	return searchAndAdd(p, arg, global.RecursiveSearch)
 }
 
 func isYouTubeURL(input string) bool {
@@ -119,8 +120,82 @@ func addURL(p domain.PerfilInterface, url string) error {
 	return nil
 }
 
-func searchAndAdd(p domain.PerfilInterface, query string) error {
-	p.Output().Display("Searching...")
+func searchAndAdd(p domain.PerfilInterface, query string, recursive bool) error {
+	global, _ := p.Config().GetProfile(p.Name())
+
+	fileResults, err := p.FileService().Search(global.MusicFolders, query, recursive)
+	if err != nil {
+		return fmt.Errorf("file search failed: %w", err)
+	}
+
+	if len(fileResults) > 0 {
+		return selectAndAddFile(p, fileResults)
+	}
+
+	return searchAndAddYouTube(p, query)
+}
+
+func selectAndAddFile(p domain.PerfilInterface, tracks []domain.Track) error {
+	if len(tracks) == 1 {
+		track := tracks[0]
+		err := p.Queue().Enqueue(track)
+		if err != nil {
+			return fmt.Errorf("failed to add to queue: %w", err)
+		}
+
+		p.Output().Display("Added: " + track.Title())
+		p.Output().ShowQueue(p.GetQueueItems())
+
+		if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+			p.ExecuteCommand("play", nil)
+		}
+
+		return nil
+	}
+
+	options := []string{"Search on YouTube"}
+	for _, t := range tracks {
+		options = append(options, t.Title())
+	}
+
+	p.Output().Display("Select an option:")
+	ch := p.Output().DisplayOptions(options)
+	idx := <-ch
+
+	if idx < 0 || idx > len(tracks) {
+		p.Output().Display("Invalid selection")
+		return nil
+	}
+
+	if idx == 0 {
+		p.Output().Display("Enter search query:")
+		ch := p.Output().RequestInput("Search:")
+		query := <-ch
+		if query == "" {
+			p.Output().Display("Empty search query")
+			return nil
+		}
+		return searchAndAddYouTube(p, query)
+	}
+
+	track := tracks[idx-1]
+	err := p.Queue().Enqueue(track)
+	if err != nil {
+		return fmt.Errorf("failed to add to queue: %w", err)
+	}
+
+	p.Output().Display("Added: " + track.Title())
+	p.Output().ShowQueue(p.GetQueueItems())
+
+	if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+		p.ExecuteCommand("play", nil)
+	}
+
+	return nil
+}
+
+func searchAndAddYouTube(p domain.PerfilInterface, query string) error {
+	p.Output().Display("Searching YouTube...")
 
 	_, profile := p.Config().GetProfile(p.Name())
 	results, err := p.YtService().Search(p.Context(), query, profile.SearchResults)

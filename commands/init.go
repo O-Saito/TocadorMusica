@@ -10,4 +10,5 @@ func init() {
 	Register(&VolumeCommand{})
 	Register(&ResumeCommand{})
 	Register(&AutoplayCommand{})
+	Register(&ListCommand{})
 }

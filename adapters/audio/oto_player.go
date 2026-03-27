@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"io"
 	"os/exec"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"sync"
 	"sync/atomic"
 
@@ -86,21 +88,40 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 
 	atomic.StoreInt32(&p.stopped, 0)
 
+	isHTTP := strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://")
+
+	processedURL := url
+	if !isHTTP {
+		processedURL = filepath.ToSlash(url)
+	}
+
 	ffmpegReader, ffmpegWriter := io.Pipe()
 	stderrBuf := &bytes.Buffer{}
 
 	p.ffmpegMu.Lock()
-	p.ffCmd = exec.Command(p.ffmpegPath,
-		"-reconnect", "1",
-		"-reconnect_streamed", "1",
-		"-reconnect_delay_max", "5",
-		"-fflags", "+genpts",
-		"-loglevel", "error",
-		"-i", url,
-		"-f", "s16le",
-		"-ar", strconv.Itoa(sampleRate),
-		"-ac", "2",
-		"pipe:1")
+	var cmd *exec.Cmd
+	if isHTTP {
+		cmd = exec.Command(p.ffmpegPath,
+			"-reconnect", "1",
+			"-reconnect_streamed", "1",
+			"-reconnect_delay_max", "5",
+			"-fflags", "+genpts",
+			"-loglevel", "error",
+			"-i", url,
+			"-f", "s16le",
+			"-ar", strconv.Itoa(sampleRate),
+			"-ac", "2",
+			"pipe:1")
+	} else {
+		cmd = exec.Command(p.ffmpegPath,
+			"-loglevel", "error",
+			"-i", processedURL,
+			"-f", "s16le",
+			"-ar", strconv.Itoa(sampleRate),
+			"-ac", "2",
+			"pipe:1")
+	}
+	p.ffCmd = cmd
 	p.ffCmd.Stdout = ffmpegWriter
 	p.ffCmd.Stderr = stderrBuf
 
@@ -110,6 +131,9 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 
 	if err := p.ffCmd.Start(); err != nil {
 		p.ffmpegMu.Unlock()
+		if p.log != nil {
+			p.log.Debug("ffmpeg failed to start", "error", err, "url", processedURL)
+		}
 		return err
 	}
 	p.ffmpegMu.Unlock()
@@ -131,7 +155,9 @@ func (p *OtoPlayer) PlayURL(url string, sampleRate int) error {
 				p.log.Debug("ffmpeg stderr", "output", stderr)
 			}
 			if err != nil {
-				p.log.Debug("ffmpeg finished", "error", err)
+				p.log.Debug("ffmpeg finished with error", "error", err)
+			} else {
+				p.log.Debug("ffmpeg finished")
 			}
 		}
 

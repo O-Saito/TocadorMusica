@@ -25,11 +25,12 @@ type ProfileConfig struct {
 }
 
 type GlobalConfig struct {
-	LogLevel     string
-	MaxQueueSize int
-	SampleRate   int
-	MusicFolders []string
-	CustomData   map[string]map[string]string
+	LogLevel        string
+	MaxQueueSize    int
+	SampleRate      int
+	MusicFolders    []string
+	RecursiveSearch bool
+	CustomData      map[string]map[string]string
 }
 
 type Config interface {
@@ -64,11 +65,12 @@ func Load(path string, log Logger) (Config, error) {
 		path:   path,
 		logger: log,
 		global: GlobalConfig{
-			LogLevel:     "info",
-			MaxQueueSize: 500,
-			SampleRate:   44100,
-			MusicFolders: []string{},
-			CustomData:   make(map[string]map[string]string),
+			LogLevel:        "info",
+			MaxQueueSize:    500,
+			SampleRate:      44100,
+			MusicFolders:    []string{},
+			RecursiveSearch: false,
+			CustomData:      make(map[string]map[string]string),
 		},
 		profiles: make(map[string]ProfileConfig),
 	}
@@ -123,10 +125,14 @@ func Load(path string, log Logger) (Config, error) {
 						cfg.global.SampleRate = v
 					}
 				case "music_folders":
-					cfg.global.MusicFolders = strings.Split(value, ",")
-					for i, folder := range cfg.global.MusicFolders {
-						cfg.global.MusicFolders[i] = strings.TrimSpace(folder)
+					if value != "" {
+						cfg.global.MusicFolders = strings.Split(value, ";")
+						for i, folder := range cfg.global.MusicFolders {
+							cfg.global.MusicFolders[i] = strings.TrimSpace(folder)
+						}
 					}
+				case "recursive_search":
+					cfg.global.RecursiveSearch = value == "true"
 				default:
 					if strings.HasPrefix(key, "interface.") {
 						ifaceName := strings.TrimPrefix(key, "interface.")
@@ -347,8 +353,9 @@ func (c *config) saveLocked() error {
 	lines = append(lines, fmt.Sprintf("max_queue_size=%d", c.global.MaxQueueSize))
 	lines = append(lines, fmt.Sprintf("sample_rate=%d", c.global.SampleRate))
 	if len(c.global.MusicFolders) > 0 {
-		lines = append(lines, fmt.Sprintf("music_folders=%s", strings.Join(c.global.MusicFolders, ",")))
+		lines = append(lines, fmt.Sprintf("music_folders=%s", strings.Join(c.global.MusicFolders, ";")))
 	}
+	lines = append(lines, fmt.Sprintf("recursive_search=%t", c.global.RecursiveSearch))
 	if len(c.global.CustomData) > 0 {
 		lines = append(lines, serializeCustomData(c.global.CustomData))
 	}

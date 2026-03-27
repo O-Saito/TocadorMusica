@@ -16,6 +16,7 @@ type PerfilInterface interface {
 	Player() audio.Player
 	Config() config.Config
 	YtService() YouTubeService
+	FileService() FileService
 	Output() ui.OutputHandler
 	Logger() logger.Logger
 	Context() context.Context
@@ -39,6 +40,7 @@ type perfil struct {
 	input       ui.InputHandler
 	output      ui.OutputHandler
 	ytSvc       YouTubeService
+	fileSvc     FileService
 	cfg         config.Config
 	log         logger.Logger
 	cmdExecutor CommandExecutor
@@ -54,6 +56,7 @@ func NewPerfil(
 	input ui.InputHandler,
 	output ui.OutputHandler,
 	ytSvc YouTubeService,
+	fileSvc FileService,
 	cfg config.Config,
 	log logger.Logger,
 	cmdExecutor CommandExecutor,
@@ -65,6 +68,7 @@ func NewPerfil(
 		input:       input,
 		output:      output,
 		ytSvc:       ytSvc,
+		fileSvc:     fileSvc,
 		cfg:         cfg,
 		log:         log.WithProfile(name),
 		cmdExecutor: cmdExecutor,
@@ -100,6 +104,10 @@ func (p *perfil) Config() config.Config {
 
 func (p *perfil) YtService() YouTubeService {
 	return p.ytSvc
+}
+
+func (p *perfil) FileService() FileService {
+	return p.fileSvc
 }
 
 func (p *perfil) Output() ui.OutputHandler {

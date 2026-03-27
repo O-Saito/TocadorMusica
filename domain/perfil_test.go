@@ -112,6 +112,16 @@ func (m *mockYouTubeService) ParsePlaylist(ctx context.Context, url string) ([]T
 	}, nil
 }
 
+type mockFileService struct{}
+
+func (m *mockFileService) Search(folders []string, query string, recursive bool) ([]Track, error) {
+	return nil, nil
+}
+
+func (m *mockFileService) ListAll(folders []string, recursive bool) ([]Track, error) {
+	return nil, nil
+}
+
 type mockConfig struct{}
 
 func (m *mockConfig) GetProfile(profileName string) (config.GlobalConfig, config.ProfileConfig) {
@@ -144,10 +154,11 @@ func TestPerfil_New(t *testing.T) {
 	input := &mockInputHandlerPerfil{inputChan: make(chan string)}
 	output := &mockOutputHandlerPerfil{}
 	ytSvc := &mockYouTubeService{}
+	fileSvc := &mockFileService{}
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test-perfil", queue, player, input, output, ytSvc, cfg, log, nil)
+	perfil := NewPerfil("test-perfil", queue, player, input, output, ytSvc, fileSvc, cfg, log, nil)
 
 	if perfil.Name() != "test-perfil" {
 		t.Errorf("expected name 'test-perfil', got '%s'", perfil.Name())
@@ -160,10 +171,11 @@ func TestPerfil_Components(t *testing.T) {
 	input := &mockInputHandlerPerfil{inputChan: make(chan string)}
 	output := &mockOutputHandlerPerfil{}
 	ytSvc := &mockYouTubeService{}
+	fileSvc := &mockFileService{}
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, fileSvc, cfg, log, nil)
 
 	if perfil.Queue() == nil {
 		t.Error("expected queue to be set")
@@ -179,10 +191,11 @@ func TestPerfil_Start(t *testing.T) {
 	input := &mockInputHandlerPerfil{inputChan: make(chan string)}
 	output := &mockOutputHandlerPerfil{}
 	ytSvc := &mockYouTubeService{}
+	fileSvc := &mockFileService{}
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, fileSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	err := perfil.Start(ctx)
@@ -200,10 +213,11 @@ func TestPerfil_Shutdown(t *testing.T) {
 	input := &mockInputHandlerPerfil{inputChan: make(chan string)}
 	output := &mockOutputHandlerPerfil{}
 	ytSvc := &mockYouTubeService{}
+	fileSvc := &mockFileService{}
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, fileSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	perfil.Start(ctx)
@@ -220,10 +234,11 @@ func TestPerfil_InputRouting(t *testing.T) {
 	input := &mockInputHandlerPerfil{inputChan: make(chan string, 1)}
 	output := &mockOutputHandlerPerfil{}
 	ytSvc := &mockYouTubeService{}
+	fileSvc := &mockFileService{}
 	cfg := &mockConfig{}
 	log := &mockLogger{}
 
-	perfil := NewPerfil("test", queue, player, input, output, ytSvc, cfg, log, nil)
+	perfil := NewPerfil("test", queue, player, input, output, ytSvc, fileSvc, cfg, log, nil)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	perfil.Start(ctx)

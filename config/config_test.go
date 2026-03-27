@@ -13,7 +13,7 @@ func (m *mockLogger) Error(msg string, args ...interface{}) {}
 func TestLoadConfig(t *testing.T) {
 	content := `log_level=warn
 max_queue_size=100
-music_folders=C:\Music,D:\Songs
+music_folders=C:\Music;D:\Songs
 
 [default]
 volume=0.5
