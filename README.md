@@ -32,3 +32,22 @@ macOS | Linux
 Windows (Power Shell) 
 
 `irm https://deno.land/install.ps1 | iex`
+
+# CONFIG
+
+`
+max_queue_size=500
+sample_rate=44100
+music_folders=C:/music;C:/musicb
+recursive_search=true
+`
+
+### MUSIC FOLDERS
+Add the folders separated with a comma (;) for music search into the system
+
+Also add `recursive_search` if your folder has levels
+`
+C:/music
+    /typeA
+    /typeB
+`
