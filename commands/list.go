@@ -50,7 +50,7 @@ func (c *ListCommand) Execute(p domain.PerfilInterface, args []string) error {
 	p.Output().Display("Added: " + track.Title())
 	p.Output().ShowQueue(p.GetQueueItems())
 
-	if p.Config().GetAutoPlay(p.Name()) && !p.Player().IsPlaying() {
+	if p.Config().GetAutoPlay(p.Name()) {
 		p.ExecuteCommand("play", nil)
 	}
 

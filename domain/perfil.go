@@ -30,8 +30,12 @@ type PerfilInterface interface {
 	Wait()
 	SetBackground(trackPath string) error
 	StopBackground()
+	ClearBackground()
+	PauseBackground()
+	ResumeBackground() error
 	StartBackground() error
 	IsBackgroundPlaying() bool
+	IsBackgroundPaused() bool
 	GetBackgroundTrack() string
 	GetBackgroundPosition() int
 	SetBackgroundPosition(position int)
@@ -59,6 +63,7 @@ type perfil struct {
 	backgroundPosition  int
 	backgroundIsActive  bool
 	backgroundStartedAt time.Time
+	backgroundPaused    bool
 }
 
 func NewPerfil(
@@ -210,6 +215,7 @@ func (p *perfil) SetBackground(trackPath string) error {
 	p.backgroundPosition = 0
 	p.backgroundIsActive = true
 	p.backgroundStartedAt = time.Now()
+	p.backgroundPaused = false
 
 	global, _ := p.cfg.GetProfile(p.Name())
 	err := p.player.PlayURLWithSeek(trackPath, global.SampleRate, 0)
@@ -223,12 +229,50 @@ func (p *perfil) SetBackground(trackPath string) error {
 }
 
 func (p *perfil) StopBackground() {
-	if p.backgroundIsActive {
+	if p.backgroundIsActive && p.player.IsPlaying() {
 		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
 	}
 	p.player.Stop()
 	p.backgroundIsActive = false
-	p.Output().Display("Background music stopped")
+}
+
+func (p *perfil) ClearBackground() {
+	p.player.Stop()
+	p.backgroundIsActive = false
+	p.backgroundPaused = false
+	p.backgroundTrack = ""
+	p.backgroundPosition = 0
+	p.Output().Display("Background music cleared")
+}
+
+func (p *perfil) PauseBackground() {
+	if p.backgroundIsActive && p.player.IsPlaying() {
+		p.backgroundPosition = int(time.Since(p.backgroundStartedAt).Seconds())
+		p.player.Pause()
+		p.backgroundPaused = true
+		p.Output().Display("Background paused")
+	}
+}
+
+func (p *perfil) ResumeBackground() error {
+	if p.backgroundPaused && p.backgroundTrack != "" {
+		p.backgroundPaused = false
+		p.backgroundStartedAt = time.Now()
+		p.backgroundStartedAt = p.backgroundStartedAt.Add(-time.Duration(p.backgroundPosition) * time.Second)
+
+		global, _ := p.cfg.GetProfile(p.Name())
+		err := p.player.PlayURLWithSeek(p.backgroundTrack, global.SampleRate, p.backgroundPosition)
+		if err != nil {
+			return err
+		}
+
+		p.Output().Display("Background resumed")
+	}
+	return nil
+}
+
+func (p *perfil) IsBackgroundPaused() bool {
+	return p.backgroundPaused
 }
 
 func (p *perfil) IsBackgroundPlaying() bool {

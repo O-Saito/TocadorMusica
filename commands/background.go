@@ -17,15 +17,17 @@ func (c *BackgroundCommand) Execute(p domain.PerfilInterface, args []string) err
 	if len(args) > 0 {
 		switch args[0] {
 		case "stop":
-			p.StopBackground()
+			p.ClearBackground()
 			return nil
 		case "status":
 			if p.GetBackgroundTrack() == "" {
 				p.Output().Display("No background music set")
 			} else if p.IsBackgroundPlaying() {
 				p.Output().Display(fmt.Sprintf("Background: %s (playing)", p.GetBackgroundTrack()))
-			} else {
+			} else if p.IsBackgroundPaused() {
 				p.Output().Display(fmt.Sprintf("Background: %s (paused at %ds)", p.GetBackgroundTrack(), p.GetBackgroundPosition()))
+			} else {
+				p.Output().Display(fmt.Sprintf("Background: %s (stopped)", p.GetBackgroundTrack()))
 			}
 			return nil
 		}

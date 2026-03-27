@@ -10,7 +10,11 @@ func (c *PauseCommand) Name() string        { return "pause" }
 func (c *PauseCommand) Description() string { return "Pause current track" }
 
 func (c *PauseCommand) Execute(p domain.PerfilInterface, args []string) error {
-	p.Player().Pause()
+	if p.IsBackgroundPlaying() {
+		p.PauseBackground()
+	} else {
+		p.Player().Pause()
+	}
 	p.Output().Display("Paused")
 	return nil
 }

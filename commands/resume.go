@@ -10,7 +10,11 @@ func (c *ResumeCommand) Name() string        { return "resume" }
 func (c *ResumeCommand) Description() string { return "Resume paused track" }
 
 func (c *ResumeCommand) Execute(p domain.PerfilInterface, args []string) error {
-	p.Player().Resume()
+	if p.GetBackgroundTrack() != "" && p.IsBackgroundPaused() {
+		p.ResumeBackground()
+	} else {
+		p.Player().Resume()
+	}
 	p.Output().Display("Resumed")
 	return nil
 }
