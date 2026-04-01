@@ -200,6 +200,7 @@ type Track struct {
 - All channels must be closed properly
 - Audio playback must not block main thread
 - Startup time < 2s
+- Configuration/dependencies path should be resolved as relative to the executable location
 
 ## External Processes
 - Must enforce timeouts
