@@ -145,9 +145,12 @@ func (c *logCloser) Close() error {
 
 type multiWriter struct {
 	writers []io.Writer
+	mu      sync.Mutex
 }
 
 func (mw *multiWriter) Write(p []byte) (n int, err error) {
+	mw.mu.Lock()
+	defer mw.mu.Unlock()
 	for _, w := range mw.writers {
 		if _, err := w.Write(p); err != nil {
 			return 0, err
