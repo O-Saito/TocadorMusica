@@ -186,15 +186,22 @@ func checkDependencies() (string, string, string, error) {
 }
 
 func findConfigPath() string {
+	execPath, err := os.Executable()
+	if err == nil {
+		execDirPath := filepath.Join(filepath.Dir(execPath), ".config")
+		if _, err := os.Stat(execDirPath); err == nil {
+			return execDirPath
+		}
+	}
+
 	if _, err := os.Stat(".config"); err == nil {
 		return ".config"
 	}
 
-	execPath, err := os.Executable()
-	if err != nil {
-		return ".config"
+	if execPath != "" {
+		return filepath.Join(filepath.Dir(execPath), ".config")
 	}
-	return filepath.Join(filepath.Dir(execPath), ".config")
+	return ".config"
 }
 
 func main() {
