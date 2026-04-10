@@ -17,6 +17,7 @@ import (
 	cliwebsocket "tocadormusica/adapters/ui/cli_socket"
 	"tocadormusica/commands"
 	"tocadormusica/config"
+	discordadapter "tocadormusica/discord"
 	"tocadormusica/domain"
 	"tocadormusica/logger"
 	"tocadormusica/ports/ui"
@@ -85,6 +86,29 @@ func GetCLIWebSocket(profileName string, cfg config.Config) (ui.InputHandler, ui
 	return cliWS, cliWS, func(ctx context.Context) {
 		cliWS.Run(ctx)
 	}
+}
+
+func getDiscord(profileName string, cfg config.Config) (ui.InputHandler, ui.OutputHandler, func(context.Context), error) {
+	_, profileCustomData := cfg.GetCustomData(profileName)
+	token := ""
+	if profileCustomData != nil {
+		if discordData, ok := profileCustomData["discord"]; ok {
+			token = discordData["token"]
+		}
+	}
+
+	discordBot, err := discordadapter.NewBot(token)
+	if err != nil {
+		return nil, nil, nil, fmt.Errorf("failed to create Discord bot: %w", err)
+	}
+
+	discordUI := discordadapter.NewUI(discordBot)
+	discordUI.SetProfileName(profileName)
+	discordUI.Refresh()
+
+	return discordUI, discordUI, func(ctx context.Context) {
+		discordUI.Run(ctx)
+	}, nil
 }
 
 func checkDependencies() (string, string, string, error) {
@@ -267,9 +291,15 @@ func main() {
 		input, output, runCLI = GetCLI(profileName)
 	case "cliwebsocket":
 		input, output, runCLI = GetCLIWebSocket(profileName, cfg)
+	case "discord":
+		input, output, runCLI, err = getDiscord(profileName, cfg)
+		if err != nil {
+			log.Error("failed to create discord interface", "error", err)
+			os.Exit(1)
+		}
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown interface: %s\n", flags.Interface)
-		fmt.Fprintf(os.Stderr, "Available interfaces: cli, cliwebsocket\n")
+		fmt.Fprintf(os.Stderr, "Available interfaces: cli, cliwebsocket, discord\n")
 		os.Exit(1)
 	}
 
@@ -295,6 +325,10 @@ func main() {
 
 	if cli, ok := input.(*cliui.CLIinterface); ok {
 		cli.SetPerfil(perfil)
+	}
+
+	if discordUI, ok := input.(*discordadapter.UI); ok {
+		discordUI.SetPerfil(perfil)
 	}
 
 	volume := int(player.Volume() * 100)
