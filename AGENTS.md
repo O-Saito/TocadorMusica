@@ -106,7 +106,7 @@ Core domain must NOT depend on:
 - Order imports consistently:
   1. External packages (e.g., `github.com/ebitengine/oto/v3`)
   2. Internal modules (e.g., `tocadormusica/commands`, `tocadormusica/utils`)
-  4. Command line (e.g. `yt-dlp`, `ffmpeg`)
+  4. Command line (e.g. `yt-dlp`, `ffmpeg`, `deno`)
 - Use absolute imports when configured
 
 ### Error Handling 
