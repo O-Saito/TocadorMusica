@@ -46,19 +46,11 @@ func (u *UI) Run(ctx context.Context) {
 	u.bot.AddHandler(u.handleMessageCreate)
 	u.bot.AddHandler(u.handleVoiceStateUpdate)
 
+	u.Display("Opening Discord session...")
 	if err := u.bot.Open(); err != nil {
 		u.Display("Error: failed to connect to Discord: " + err.Error())
 		return
 	}
-
-	u.bot.AddHandler(func(s *discordgo.Session, r *discordgo.Ready) {
-		u.Display("Connected to Discord! Joining voice channel...")
-		if err := u.bot.JoinVoice(); err != nil {
-			u.Display("Error: " + err.Error())
-			return
-		}
-		u.Display("Joined voice channel!")
-	})
 
 	defer u.bot.Close()
 
@@ -66,12 +58,36 @@ func (u *UI) Run(ctx context.Context) {
 }
 
 func (u *UI) handleReady(s *discordgo.Session, r *discordgo.Ready) {
-	u.Display("Logged in as: " + s.State.User.Username)
+	u.Display("Logged in as: " + s.State.User.Username + "!")
+
+	hasPerms, err := u.bot.CheckPermissions(guildID)
+	if err != nil {
+		u.Display("Error checking permissions: " + err.Error())
+	} else {
+		u.Display("Bot has CONNECT permission: " + strconv.FormatBool(hasPerms))
+	}
+
+	u.Display("Joining voice channel...")
+	if err := u.bot.JoinVoice(); err != nil {
+		u.Display("Failed to join voice: " + err.Error())
+		return
+	}
+	u.Display("Successfully joined voice channel!")
+
+	if u.perfil != nil {
+		u.Display("Playing test track...")
+		u.perfil.ExecuteCommand("add", []string{"musicas/ONE PIECE Marble Music"})
+		u.perfil.ExecuteCommand("play", []string{""})
+	}
 }
 
 func (u *UI) handleVoiceStateUpdate(s *discordgo.Session, v *discordgo.VoiceStateUpdate) {
-	if v.UserID == s.State.User.ID && v.ChannelID != "" {
-		u.Display("Bot joined voice channel: " + v.ChannelID)
+	if v.UserID == s.State.User.ID {
+		if v.ChannelID != "" {
+			u.Display("Voice state updated: joined channel " + v.ChannelID)
+		} else {
+			u.Display("Voice state updated: left channel")
+		}
 	}
 }
 
@@ -136,7 +152,7 @@ func (u *UI) send(message string) {
 }
 
 func (u *UI) Display(message string) {
-	u.send(message)
+	fmt.Println(message)
 }
 
 func (u *UI) RequestInput(prompt string) <-chan string {
@@ -145,6 +161,11 @@ func (u *UI) RequestInput(prompt string) <-chan string {
 }
 
 func (u *UI) DisplayOptions(options []string) <-chan int {
+	var sb strings.Builder
+	for i, opt := range options {
+		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, opt))
+	}
+	fmt.Print(sb.String())
 	return u.DisplayOptionsPage(options, 0, 0, false)
 }
 
@@ -159,6 +180,8 @@ func (u *UI) DisplayOptionsPage(options []string, currentPage int, totalPages in
 	if showYouTubeOption {
 		sb.WriteString(fmt.Sprintf("%d. Search on YouTube\n", len(options)+1))
 	}
+
+	fmt.Print(sb.String())
 	u.send(sb.String())
 
 	u.mu.Lock()
@@ -169,7 +192,7 @@ func (u *UI) DisplayOptionsPage(options []string, currentPage int, totalPages in
 }
 
 func (u *UI) FindUnknownCommand() {
-	u.send("Unknown command. Available: play, pause, resume, stop, next, list, queue, volume, add, clear")
+	fmt.Println("Unknown command. Available: play, pause, resume, stop, next, list, queue, volume, add, clear")
 }
 
 func (u *UI) ShowQueue(items []string) {
@@ -178,11 +201,11 @@ func (u *UI) ShowQueue(items []string) {
 	for i, item := range items {
 		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, item))
 	}
-	u.send(sb.String())
+	fmt.Print(sb.String())
 }
 
 func (u *UI) ShowNowPlaying(track string) {
-	u.send("Now playing: " + track)
+	fmt.Println("Now playing: " + track)
 }
 
 func (u *UI) ShowVolumeAndAutoplay(volume int, autoplay bool) {
@@ -190,7 +213,7 @@ func (u *UI) ShowVolumeAndAutoplay(volume int, autoplay bool) {
 	if autoplay {
 		autoplayStr = "on"
 	}
-	u.send(fmt.Sprintf("Volume: %d%% | Autoplay: %s", volume, autoplayStr))
+	fmt.Printf("Volume: %d%% | Autoplay: %s\n", volume, autoplayStr)
 }
 
 func (u *UI) ShowBackground(track string, position int, isPlaying bool, isPaused bool) {
@@ -200,7 +223,7 @@ func (u *UI) ShowBackground(track string, position int, isPlaying bool, isPaused
 	} else if isPaused {
 		status = "paused"
 	}
-	u.send(fmt.Sprintf("%s - %s [%d]", track, status, position))
+	fmt.Printf("%s - %s [%d]\n", track, status, position)
 }
 
 func (u *UI) SetPerfil(perfil domain.PerfilInterface) {

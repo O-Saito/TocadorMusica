@@ -20,6 +20,7 @@ import (
 	discordadapter "tocadormusica/discord"
 	"tocadormusica/domain"
 	"tocadormusica/logger"
+	portsaudio "tocadormusica/ports/audio"
 	"tocadormusica/ports/ui"
 	"tocadormusica/services/dependencies"
 	"tocadormusica/services/file"
@@ -88,7 +89,7 @@ func GetCLIWebSocket(profileName string, cfg config.Config) (ui.InputHandler, ui
 	}
 }
 
-func getDiscord(profileName string, cfg config.Config) (ui.InputHandler, ui.OutputHandler, func(context.Context), error) {
+func getDiscord(profileName string, cfg config.Config, ffmpegPath string) (portsaudio.Player, ui.InputHandler, ui.OutputHandler, func(context.Context), error) {
 	_, profileCustomData := cfg.GetCustomData(profileName)
 	token := ""
 	if profileCustomData != nil {
@@ -99,14 +100,19 @@ func getDiscord(profileName string, cfg config.Config) (ui.InputHandler, ui.Outp
 
 	discordBot, err := discordadapter.NewBot(token)
 	if err != nil {
-		return nil, nil, nil, fmt.Errorf("failed to create Discord bot: %w", err)
+		return nil, nil, nil, nil, fmt.Errorf("failed to create Discord bot: %w", err)
+	}
+
+	discordPlayer, err := discordadapter.NewDiscordPlayer(discordBot, ffmpegPath)
+	if err != nil {
+		return nil, nil, nil, nil, fmt.Errorf("failed to create Discord player: %w", err)
 	}
 
 	discordUI := discordadapter.NewUI(discordBot)
 	discordUI.SetProfileName(profileName)
 	discordUI.Refresh()
 
-	return discordUI, discordUI, func(ctx context.Context) {
+	return discordPlayer, discordUI, discordUI, func(ctx context.Context) {
 		discordUI.Run(ctx)
 	}, nil
 }
@@ -275,28 +281,36 @@ func main() {
 
 	queue := domain.NewQueue(global.MaxQueueSize)
 
-	player, err := audioadapter.NewOtoPlayerWithFFmpeg(global.SampleRate, log, ffmpegPath)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Failed to create audio player: %v\n", err)
-		os.Exit(1)
-	}
-	player.SetVolume(profile.Volume)
-
+	var player portsaudio.Player
 	var input ui.InputHandler
 	var output ui.OutputHandler
 	var runCLI func(context.Context)
 
 	switch flags.Interface {
 	case "cli":
+		player, err = audioadapter.NewOtoPlayerWithFFmpeg(global.SampleRate, log, ffmpegPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create audio player: %v\n", err)
+			os.Exit(1)
+		}
 		input, output, runCLI = GetCLI(profileName)
 	case "cliwebsocket":
+		player, err = audioadapter.NewOtoPlayerWithFFmpeg(global.SampleRate, log, ffmpegPath)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create audio player: %v\n", err)
+			os.Exit(1)
+		}
 		input, output, runCLI = GetCLIWebSocket(profileName, cfg)
 	case "discord":
-		input, output, runCLI, err = getDiscord(profileName, cfg)
+		discordPlayer, discordInput, discordOutput, discordRun, err := getDiscord(profileName, cfg, ffmpegPath)
 		if err != nil {
 			log.Error("failed to create discord interface", "error", err)
 			os.Exit(1)
 		}
+		player = discordPlayer
+		input = discordInput
+		output = discordOutput
+		runCLI = discordRun
 	default:
 		fmt.Fprintf(os.Stderr, "Unknown interface: %s\n", flags.Interface)
 		fmt.Fprintf(os.Stderr, "Available interfaces: cli, cliwebsocket, discord\n")
@@ -331,6 +345,7 @@ func main() {
 		discordUI.SetPerfil(perfil)
 	}
 
+	player.SetVolume(profile.Volume)
 	volume := int(player.Volume() * 100)
 	perfil.NotifyVolumeChanged(volume)
 

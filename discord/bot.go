@@ -32,6 +32,7 @@ func NewBot(token string) (*Bot, error) {
 		return nil, fmt.Errorf("failed to create Discord session: %w", err)
 	}
 
+	dg.StateEnabled = true
 	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildVoiceStates
 
 	return &Bot{
@@ -84,6 +85,32 @@ func (b *Bot) JoinVoice() error {
 
 func (b *Bot) IsVoiceJoined() bool {
 	return b.voiceJoined
+}
+
+func (b *Bot) VoiceConnection() *discordgo.VoiceConnection {
+	return b.voiceConn
+}
+
+func (b *Bot) CheckPermissions(guildID string) (bool, error) {
+	guild, err := b.session.Guild(guildID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get guild %s: %w", guildID, err)
+	}
+
+	member, err := b.session.GuildMember(guildID, b.session.State.User.ID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get member: %w", err)
+	}
+
+	perms, err := b.session.UserChannelPermissions(b.session.State.User.ID, voiceChannelID)
+	if err != nil {
+		return false, fmt.Errorf("failed to get channel perms: %w", err)
+	}
+
+	fmt.Printf("DEBUG: Guild=%s, HasMember=%v, Perms=%d\n", guild.Name, member != nil, perms)
+	fmt.Printf("DEBUG: PermissionVoiceConnect=%v\n", perms&discordgo.PermissionVoiceConnect != 0)
+
+	return perms&discordgo.PermissionVoiceConnect != 0, nil
 }
 
 func (b *Bot) WaitForSignal() {
