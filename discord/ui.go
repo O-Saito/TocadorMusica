@@ -76,8 +76,8 @@ func (u *UI) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 
 	if u.perfil != nil {
 		u.Display("Playing test track...")
-		u.perfil.ExecuteCommand("add", []string{"musicas/ONE PIECE Marble Music"})
-		u.perfil.ExecuteCommand("play", []string{""})
+		//u.perfil.ExecuteCommand("add", []string{"musicas/ONE PIECE"})
+		u.perfil.ExecuteCommand("add", []string{"https://www.youtube.com/watch?v=PCp2iXA1uLE"})
 	}
 }
 
@@ -202,6 +202,7 @@ func (u *UI) ShowQueue(items []string) {
 		sb.WriteString(fmt.Sprintf("%d. %s\n", i+1, item))
 	}
 	fmt.Print(sb.String())
+	u.perfil.ExecuteCommand("play", []string{""})
 }
 
 func (u *UI) ShowNowPlaying(track string) {

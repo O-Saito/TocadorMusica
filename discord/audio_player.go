@@ -2,11 +2,16 @@ package discord
 
 import (
 	"bytes"
+	"fmt"
 	"io"
 	"os/exec"
 	"strconv"
 	"sync"
 	"sync/atomic"
+	"time"
+	"unsafe"
+
+	"layeh.com/gopus"
 
 	"tocadormusica/ports/audio"
 )
@@ -14,28 +19,37 @@ import (
 const (
 	sampleRate = 48000
 	channels   = 2
+	frameSize  = 960
+	maxBytes   = frameSize * 2 * 2
 )
 
 var _ audio.Player = (*DiscordPlayer)(nil)
 
 type DiscordPlayer struct {
-	bot        *Bot
-	volume     float64
-	playing    int32
-	stopped    int32
-	ffmpegPath string
-	onFinished func()
-	ffmpegCmd  *exec.Cmd
-	volumeMu   sync.Mutex
-	playerMu   sync.Mutex
-	ffmpegMu   sync.Mutex
+	bot         *Bot
+	volume      float64
+	playing     int32
+	stopped     int32
+	ffmpegPath  string
+	opusEncoder *gopus.Encoder
+	onFinished  func()
+	ffmpegCmd   *exec.Cmd
+	volumeMu    sync.Mutex
+	playerMu    sync.Mutex
+	ffmpegMu    sync.Mutex
 }
 
 func NewDiscordPlayer(bot *Bot, ffmpegPath string) (*DiscordPlayer, error) {
+	encoder, err := gopus.NewEncoder(sampleRate, channels, gopus.Voip)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DiscordPlayer{
-		bot:        bot,
-		volume:     1.0,
-		ffmpegPath: ffmpegPath,
+		bot:         bot,
+		volume:      1.0,
+		ffmpegPath:  ffmpegPath,
+		opusEncoder: encoder,
 	}, nil
 }
 
@@ -73,10 +87,9 @@ func (p *DiscordPlayer) PlayURLWithSeek(url string, sampleRate int, seekSeconds 
 		"-i", url,
 		"-vn",
 		"-filter:a", "volume="+strconv.FormatFloat(vol, 'f', -1, 64),
-		"-c:a", "libopus",
-		"-frame_size", "20",
-		"-application", "voip",
-		"-f", "opus",
+		"-f", "s16le",
+		"-ar", "48000",
+		"-ac", "2",
 		"pipe:1")
 	p.ffmpegCmd = exec.Command(p.ffmpegPath, cmdArgs...)
 	p.ffmpegCmd.Stdout = ffmpegWriter
@@ -103,24 +116,38 @@ func (p *DiscordPlayer) PlayURLWithSeek(url string, sampleRate int, seekSeconds 
 		defer ffmpegReader.Close()
 		defer vc.Speaking(false)
 
-		buf := make([]byte, 4096)
+		pcmBuf := make([]int16, frameSize*channels)
+		frameCount := 0
 
 		for {
-			n, err := ffmpegReader.Read(buf)
+			_, err := io.ReadFull(ffmpegReader, pcmBufToBytes(pcmBuf))
 			if err != nil {
-				if err == io.EOF {
+				if err == io.EOF || err == io.ErrUnexpectedEOF {
+					fmt.Printf("DEBUG: FFmpeg EOF, frames sent: %d\n", frameCount)
 					break
 				}
+				fmt.Printf("DEBUG: FFmpeg read error: %v\n", err)
 				continue
 			}
 
-			if n > 0 {
-				select {
-				case vc.OpusSend <- buf[:n]:
-				default:
-				}
+			opusFrame, err := p.opusEncoder.Encode(pcmBuf, frameSize, maxBytes)
+			if err != nil {
+				fmt.Printf("DEBUG: Opus encode error: %v\n", err)
+				continue
 			}
+
+			frameCount++
+			select {
+			case vc.OpusSend <- opusFrame:
+				if frameCount%100 == 0 {
+					fmt.Printf("DEBUG: Sent frame %d, size=%d\n", frameCount, len(opusFrame))
+				}
+			default:
+			}
+			time.Sleep(19 * time.Millisecond)
 		}
+
+		fmt.Printf("DEBUG: Finished, total frames sent: %d\n", frameCount)
 
 		if atomic.LoadInt32(&p.stopped) == 0 {
 			atomic.StoreInt32(&p.playing, 0)
@@ -131,6 +158,10 @@ func (p *DiscordPlayer) PlayURLWithSeek(url string, sampleRate int, seekSeconds 
 	}()
 
 	return nil
+}
+
+func pcmBufToBytes(buf []int16) []byte {
+	return unsafe.Slice((*byte)(unsafe.Pointer(&buf[0])), len(buf)*2)
 }
 
 func (p *DiscordPlayer) Pause() {

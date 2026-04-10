@@ -146,6 +146,8 @@ func (d *Dependency) GetDownloadURL() string {
 		return getFFmpegURL()
 	case "deno":
 		return getDenoURL()
+	case "opus":
+		return getOpusURL()
 	}
 	return ""
 }
@@ -181,6 +183,17 @@ func getDenoURL() string {
 	}
 }
 
+func getOpusURL() string {
+	switch platform {
+	case PlatformWindows:
+		return "https://mirror.msys2.org/mingw/mingw64/mingw-w64-x86_64-opus-1.6.1-1-any.pkg.tar.zst"
+	case PlatformDarwin:
+		return "https://opus-codec.org/downloads/opus-1.6.1.tar.gz"
+	default:
+		return "https://opus-codec.org/downloads/opus-1.6.1.tar.gz"
+	}
+}
+
 func GetInstallMessage(name string) string {
 	switch name {
 	case "yt-dlp":
@@ -189,6 +202,8 @@ func GetInstallMessage(name string) string {
 		return fmt.Sprintf("Install ffmpeg:\n  Linux: sudo apt install ffmpeg\n  macOS: brew install ffmpeg\n  Windows: https://ffmpeg.org/download.html")
 	case "deno":
 		return fmt.Sprintf("Install deno:\n  Linux/macOS: curl -fsSL https://deno.land/install.sh | sh\n  Windows: irm https://deno.land/install.ps1 | iex\n  Or: https://deno.land/")
+	case "opus":
+		return fmt.Sprintf("Install opus:\n  MSYS2: pacman -S mingw-w64-x86_64-opus\n  Or: download libopus from https://opus-codec.org/downloads/")
 	}
 	return fmt.Sprintf("Install %s", name)
 }
