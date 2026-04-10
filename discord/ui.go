@@ -76,8 +76,8 @@ func (u *UI) handleReady(s *discordgo.Session, r *discordgo.Ready) {
 
 	if u.perfil != nil {
 		u.Display("Playing test track...")
-		//u.perfil.ExecuteCommand("add", []string{"musicas/ONE PIECE"})
-		u.perfil.ExecuteCommand("add", []string{"https://www.youtube.com/watch?v=PCp2iXA1uLE"})
+		u.perfil.ExecuteCommand("add", []string{"musicas/DUPÊ - Te Amo_ Te Odeio"})
+		//u.perfil.ExecuteCommand("add", []string{"https://www.youtube.com/watch?v=PCp2iXA1uLE"})
 	}
 }
 
